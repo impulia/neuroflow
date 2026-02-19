@@ -1,0 +1,62 @@
+mod models;
+mod storage;
+mod system;
+mod tracker;
+mod report;
+mod config;
+
+use clap::{Parser, Subcommand};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use tracker::Tracker;
+use storage::Storage;
+use report::Reporter;
+use anyhow::Result;
+
+#[derive(Parser)]
+#[command(name = "neflo")]
+#[command(about = "A simple focus and idle time tracker for macOS", long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Start tracking focus/idle time
+    Start {
+        /// Idle threshold in minutes
+        #[arg(short, long)]
+        threshold: Option<u64>,
+    },
+    /// Generate a report of focus/idle time
+    Report,
+}
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+    let config = config::load_config()?;
+    let storage = Storage::new()?;
+
+    match cli.command {
+        Commands::Start { threshold } => {
+            let threshold = threshold.unwrap_or(config.default_threshold_mins);
+            let tracker = Tracker::new(storage, threshold);
+
+            let running = Arc::new(AtomicBool::new(true));
+            let r = running.clone();
+
+            ctrlc::set_handler(move || {
+                r.store(false, Ordering::SeqCst);
+            }).expect("Error setting Ctrl-C handler");
+
+            tracker.start(running)?;
+        }
+        Commands::Report => {
+            let reporter = Reporter::new(storage);
+            reporter.report()?;
+        }
+    }
+
+    Ok(())
+}
