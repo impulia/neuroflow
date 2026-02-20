@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum IntervalType {
@@ -15,11 +15,10 @@ pub struct Interval {
 }
 
 impl Interval {
-    pub fn new(kind: IntervalType) -> Self {
-        let now = Utc::now();
+    pub fn new_at(kind: IntervalType, at: DateTime<Utc>) -> Self {
         Self {
-            start: now,
-            end: now,
+            start: at,
+            end: at,
             kind,
         }
     }

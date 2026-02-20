@@ -1,18 +1,19 @@
+mod config;
 mod models;
+mod report;
 mod storage;
 mod system;
 mod tracker;
-mod report;
 mod config;
 mod tui;
 
+use anyhow::Result;
 use clap::{Parser, Subcommand};
+use report::Reporter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tracker::Tracker;
 use storage::Storage;
-use report::Reporter;
-use anyhow::Result;
+use tracker::Tracker;
 
 #[derive(Parser)]
 #[command(name = "neflo")]
@@ -53,7 +54,8 @@ fn main() -> Result<()> {
 
             ctrlc::set_handler(move || {
                 r.store(false, Ordering::SeqCst);
-            }).expect("Error setting Ctrl-C handler");
+            })
+            .expect("Error setting Ctrl-C handler");
 
             tracker.start(running)?;
         }
