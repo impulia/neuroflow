@@ -34,11 +34,11 @@ pub fn calculate_stats(db: &Database) -> Stats {
         let stats = daily_stats.entry(date).or_default();
         match interval.kind {
             IntervalType::Focus => {
-                stats.total_focus = stats.total_focus + duration;
+                stats.total_focus += duration;
                 stats.focus_sessions += 1;
             }
             IntervalType::Idle => {
-                stats.total_idle = stats.total_idle + duration;
+                stats.total_idle += duration;
                 stats.idle_sessions += 1;
             }
         }

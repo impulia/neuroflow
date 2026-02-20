@@ -53,7 +53,6 @@ impl Tracker {
         Ok(())
     }
 
-
     pub fn update_db(
         &mut self,
         current_kind: IntervalType,

@@ -74,7 +74,10 @@ impl Reporter {
             week_idle_sessions += stats.idle_sessions;
         }
 
-        println!("\nWeekly Summary (Starting Monday {})", stats_data.week_start);
+        println!(
+            "\nWeekly Summary (Starting Monday {})",
+            stats_data.week_start
+        );
         println!("-------------------------------------------");
         println!(
             "Total Focus Time:    {}",
