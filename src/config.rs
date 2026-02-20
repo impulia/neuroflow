@@ -1,6 +1,6 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use anyhow::Result;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
@@ -16,7 +16,8 @@ impl Default for Config {
 }
 
 pub fn load_config() -> Result<Config> {
-    let mut path = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
+    let mut path =
+        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
     path.push(".neflo");
     if !path.exists() {
         fs::create_dir_all(&path)?;

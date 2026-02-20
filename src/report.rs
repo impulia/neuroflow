@@ -1,7 +1,7 @@
 use crate::models::IntervalType;
 use crate::storage::Storage;
 use anyhow::Result;
-use chrono::{Datelike, Local, Duration};
+use chrono::{Datelike, Duration, Local};
 use std::collections::BTreeMap;
 
 pub struct Reporter {
@@ -46,11 +46,11 @@ impl Reporter {
             let stats = daily_stats.entry(date).or_default();
             match interval.kind {
                 IntervalType::Focus => {
-                    stats.total_focus = stats.total_focus + duration;
+                    stats.total_focus += duration;
                     stats.focus_sessions += 1;
                 }
                 IntervalType::Idle => {
-                    stats.total_idle = stats.total_idle + duration;
+                    stats.total_idle += duration;
                     stats.idle_sessions += 1;
                 }
             }
@@ -77,7 +77,10 @@ impl Reporter {
             };
 
             println!("\nDate: {}", date_str);
-            println!("  Focus Time:        {}", format_duration(stats.total_focus));
+            println!(
+                "  Focus Time:        {}",
+                format_duration(stats.total_focus)
+            );
             println!("  Idle Time:         {}", format_duration(stats.total_idle));
             println!("  Interruptions:     {}", stats.idle_sessions);
 
@@ -90,8 +93,8 @@ impl Reporter {
                 println!("  Avg Interruption:  {}", format_duration(avg_idle));
             }
 
-            week_total_focus = week_total_focus + stats.total_focus;
-            week_total_idle = week_total_idle + stats.total_idle;
+            week_total_focus += stats.total_focus;
+            week_total_idle += stats.total_idle;
             week_focus_sessions += stats.focus_sessions;
             week_idle_sessions += stats.idle_sessions;
         }
