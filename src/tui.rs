@@ -208,7 +208,7 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
     let stats = calculate_stats(&tracker.db);
 
     let chart_block = Block::default()
-        .title(" Focus (Green) & Idle (Yellow) - Last 7 Days ")
+        .title(" Activity - Current Week (Focus: Green, Idle: Yellow) ")
         .borders(Borders::ALL);
     let inner_area = chart_block.inner(area);
     frame.render_widget(chart_block, area);
@@ -217,12 +217,12 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
         return;
     }
 
-    // Get last 7 days
+    // Get current week (Monday to Sunday)
     let mut days_data = Vec::new();
     let mut max_total_secs = 1;
 
-    for i in (0..7).rev() {
-        let date = stats.today - chrono::Duration::days(i);
+    for i in 0..7 {
+        let date = stats.week_start + chrono::Duration::days(i);
         let day_stats = stats.daily_stats.get(&date).cloned().unwrap_or_default();
         let focus_secs = day_stats.total_focus.num_seconds();
         let idle_secs = day_stats.total_idle.num_seconds();
