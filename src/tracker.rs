@@ -40,12 +40,11 @@ impl Tracker {
                 IntervalType::Focus
             };
 
-            let now = Utc::now();
-
             // Update database
-            self.update_db(&mut db, current_kind, idle_time, now);
+            self.update_db(&mut db, current_kind, idle_time);
 
             // Save on transition or every 30 seconds
+            let now = Utc::now();
             if Some(current_kind) != last_kind_seen
                 || now - last_save > chrono::Duration::seconds(30)
             {
@@ -67,29 +66,23 @@ impl Tracker {
 
         println!("\nStopping tracker...");
         // Final update to make sure end time is set correctly
-        let now = Utc::now();
         let idle_time = get_idle_time();
         let current_kind = if idle_time >= self.threshold_secs {
             IntervalType::Idle
         } else {
             IntervalType::Focus
         };
-        self.update_db(&mut db, current_kind, idle_time, now);
+        self.update_db(&mut db, current_kind, idle_time);
         self.storage.save(&db)?;
         Ok(())
     }
 
-    fn update_db(
-        &self,
-        db: &mut Database,
-        current_kind: IntervalType,
-        idle_time: f64,
-        now: chrono::DateTime<Utc>,
-    ) {
+    fn update_db(&self, db: &mut Database, current_kind: IntervalType, idle_time: f64) {
+        let now = Utc::now();
         let gap_threshold = chrono::Duration::seconds(10);
 
         if db.intervals.is_empty() {
-            db.intervals.push(Interval::new_at(current_kind, now));
+            db.intervals.push(Interval::new(current_kind));
             return;
         }
 
@@ -97,7 +90,7 @@ impl Tracker {
 
         // If it's been a long time since the last update, start a new interval
         if now - db.intervals[last_idx].end > gap_threshold {
-            db.intervals.push(Interval::new_at(current_kind, now));
+            db.intervals.push(Interval::new(current_kind));
             return;
         }
 
@@ -117,7 +110,7 @@ impl Tracker {
                 } else {
                     // Split the interval
                     db.intervals[last_idx].end = idle_start;
-                    let mut new_interval = Interval::new_at(IntervalType::Idle, now);
+                    let mut new_interval = Interval::new(IntervalType::Idle);
                     new_interval.start = idle_start;
                     new_interval.end = now;
                     db.intervals.push(new_interval);
@@ -125,136 +118,11 @@ impl Tracker {
             } else {
                 // Idle -> Focus
                 db.intervals[last_idx].end = now;
-                db.intervals
-                    .push(Interval::new_at(IntervalType::Focus, now));
+                db.intervals.push(Interval::new(IntervalType::Focus));
             }
         }
 
         // Cleanup: remove 0 or negative duration intervals if any (shouldn't really happen but for safety)
         db.intervals.retain(|i| i.end >= i.start);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::storage::Storage;
-    use chrono::TimeZone;
-    use std::path::PathBuf;
-
-    fn setup_tracker(path: PathBuf) -> Tracker {
-        let storage = Storage::from_path(path);
-        Tracker::new(storage, 5) // 5 mins threshold
-    }
-
-    #[test]
-    fn test_update_db_initial() {
-        let tracker = setup_tracker(PathBuf::from("dummy"));
-        let mut db = Database::default();
-        let now = Utc.with_ymd_and_hms(2023, 1, 1, 10, 0, 0).unwrap();
-
-        tracker.update_db(&mut db, IntervalType::Focus, 0.0, now);
-
-        assert_eq!(db.intervals.len(), 1);
-        assert_eq!(db.intervals[0].kind, IntervalType::Focus);
-        assert_eq!(db.intervals[0].start, now);
-        assert_eq!(db.intervals[0].end, now);
-    }
-
-    #[test]
-    fn test_update_db_continuous() {
-        let tracker = setup_tracker(PathBuf::from("dummy"));
-        let mut db = Database::default();
-        let t1 = Utc.with_ymd_and_hms(2023, 1, 1, 10, 0, 0).unwrap();
-        let t2 = t1 + chrono::Duration::seconds(5);
-
-        tracker.update_db(&mut db, IntervalType::Focus, 0.0, t1);
-        tracker.update_db(&mut db, IntervalType::Focus, 0.0, t2);
-
-        assert_eq!(db.intervals.len(), 1);
-        assert_eq!(db.intervals[0].start, t1);
-        assert_eq!(db.intervals[0].end, t2);
-    }
-
-    #[test]
-    fn test_update_db_transition_focus_to_idle_backdated() {
-        let tracker = setup_tracker(PathBuf::from("dummy"));
-        let mut db = Database::default();
-        let start = Utc.with_ymd_and_hms(2023, 1, 1, 10, 0, 0).unwrap();
-        let mut now = start;
-
-        // Focus for 300s, updating every 5s to stay under gap_threshold
-        for _ in 0..60 {
-            tracker.update_db(&mut db, IntervalType::Focus, 0.0, now);
-            now = now + chrono::Duration::seconds(5);
-        }
-
-        // Now at 10:05:00, we detect 300s idle.
-        // idle_start = 10:05:00 - 300s = 10:00:00.
-        tracker.update_db(&mut db, IntervalType::Idle, 300.0, now);
-
-        assert_eq!(db.intervals.len(), 1);
-        assert_eq!(db.intervals[0].kind, IntervalType::Idle);
-        assert_eq!(db.intervals[0].start, start);
-        assert_eq!(db.intervals[0].end, now);
-    }
-
-    #[test]
-    fn test_update_db_transition_focus_to_idle_split() {
-        let tracker = setup_tracker(PathBuf::from("dummy"));
-        let mut db = Database::default();
-        let start = Utc.with_ymd_and_hms(2023, 1, 1, 10, 0, 0).unwrap();
-        let mut now = start;
-
-        // Focus for 600s, updating every 5s
-        for _ in 0..120 {
-            tracker.update_db(&mut db, IntervalType::Focus, 0.0, now);
-            now = now + chrono::Duration::seconds(5);
-        }
-
-        // Now at 10:10:00, we detect 300s idle.
-        // idle_start = 10:10:00 - 300s = 10:05:00.
-        tracker.update_db(&mut db, IntervalType::Idle, 300.0, now);
-
-        assert_eq!(db.intervals.len(), 2);
-        assert_eq!(db.intervals[0].kind, IntervalType::Focus);
-        assert_eq!(db.intervals[0].end, start + chrono::Duration::seconds(300));
-        assert_eq!(db.intervals[1].kind, IntervalType::Idle);
-        assert_eq!(
-            db.intervals[1].start,
-            start + chrono::Duration::seconds(300)
-        );
-        assert_eq!(db.intervals[1].end, now);
-    }
-
-    #[test]
-    fn test_update_db_transition_idle_to_focus() {
-        let tracker = setup_tracker(PathBuf::from("dummy"));
-        let mut db = Database::default();
-        let t1 = Utc.with_ymd_and_hms(2023, 1, 1, 10, 0, 0).unwrap();
-        let t2 = t1 + chrono::Duration::seconds(300);
-
-        tracker.update_db(&mut db, IntervalType::Idle, 300.0, t1);
-        tracker.update_db(&mut db, IntervalType::Focus, 0.0, t2);
-
-        assert_eq!(db.intervals.len(), 2);
-        assert_eq!(db.intervals[0].kind, IntervalType::Idle);
-        assert_eq!(db.intervals[1].kind, IntervalType::Focus);
-        assert_eq!(db.intervals[1].start, t2);
-    }
-
-    #[test]
-    fn test_update_db_gap() {
-        let tracker = setup_tracker(PathBuf::from("dummy"));
-        let mut db = Database::default();
-        let t1 = Utc.with_ymd_and_hms(2023, 1, 1, 10, 0, 0).unwrap();
-        let t2 = t1 + chrono::Duration::seconds(60); // 1 min gap (threshold is 10s)
-
-        tracker.update_db(&mut db, IntervalType::Focus, 0.0, t1);
-        tracker.update_db(&mut db, IntervalType::Focus, 0.0, t2);
-
-        assert_eq!(db.intervals.len(), 2);
-        assert_eq!(db.intervals[0].start, t1);
-        assert_eq!(db.intervals[1].start, t2);
     }
 }

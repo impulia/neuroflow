@@ -1,4 +1,4 @@
-use crate::report::{Reporter, ReportData, format_duration};
+use crate::report::{format_duration, ReportData, Reporter};
 use anyhow::Result;
 use chrono::Duration;
 use crossterm::{
@@ -11,7 +11,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, BarChart},
+    widgets::{BarChart, Block, Borders, Paragraph},
     Terminal,
 };
 use std::io;
@@ -79,30 +79,40 @@ fn ui(f: &mut ratatui::Frame, data: &ReportData) {
         .map(|i| data.week_start + Duration::days(i))
         .collect();
 
-    let chart_labels: Vec<String> = days.iter()
-        .map(|d| d.format("%a %d").to_string())
-        .collect();
+    let chart_labels: Vec<String> = days.iter().map(|d| d.format("%a %d").to_string()).collect();
 
-    let focus_minutes: Vec<u64> = days.iter()
+    let focus_minutes: Vec<u64> = days
+        .iter()
         .map(|d| {
-            data.daily_stats.get(d)
+            data.daily_stats
+                .get(d)
                 .map(|s| s.total_focus.num_minutes() as u64)
                 .unwrap_or(0)
         })
         .collect();
 
-    let bar_data: Vec<(&str, u64)> = chart_labels.iter()
+    let bar_data: Vec<(&str, u64)> = chart_labels
+        .iter()
         .zip(focus_minutes.iter())
         .map(|(l, v)| (l.as_str(), *v))
         .collect();
 
     let chart = BarChart::default()
-        .block(Block::default().borders(Borders::ALL).title("Weekly Focus Time (minutes)"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Weekly Focus Time (minutes)"),
+        )
         .data(&bar_data)
         .bar_width(10)
         .bar_gap(2)
         .style(Style::default().fg(Color::Green))
-        .value_style(Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD));
+        .value_style(
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        );
 
     f.render_widget(chart, chunks[1]);
 
@@ -133,7 +143,10 @@ fn ui(f: &mut ratatui::Frame, data: &ReportData) {
             week_interruptions.to_string().into(),
         ]),
         Line::from(""),
-        Line::from(Span::styled("Daily Details:", Style::default().add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled(
+            "Daily Details:",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
     ];
 
     let mut details = summary_lines;
@@ -155,8 +168,11 @@ fn ui(f: &mut ratatui::Frame, data: &ReportData) {
         )));
     }
 
-    let summary = Paragraph::new(details)
-        .block(Block::default().borders(Borders::ALL).title("Weekly Summary"));
+    let summary = Paragraph::new(details).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("Weekly Summary"),
+    );
     f.render_widget(summary, chunks[2]);
 
     let footer = Paragraph::new(format!("Today is {}", data.today))

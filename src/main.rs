@@ -4,7 +4,6 @@ mod report;
 mod storage;
 mod system;
 mod tracker;
-mod config;
 mod tui;
 
 use anyhow::Result;

@@ -1,7 +1,7 @@
 use crate::models::IntervalType;
 use crate::storage::Storage;
 use anyhow::Result;
-use chrono::{Datelike, Local, Duration, NaiveDate};
+use chrono::{Datelike, Duration, Local, NaiveDate};
 use std::collections::BTreeMap;
 
 pub struct Reporter {
@@ -48,11 +48,11 @@ impl Reporter {
             let stats = daily_stats.entry(date).or_default();
             match interval.kind {
                 IntervalType::Focus => {
-                    stats.total_focus += duration;
+                    stats.total_focus = stats.total_focus + duration;
                     stats.focus_sessions += 1;
                 }
                 IntervalType::Idle => {
-                    stats.total_idle += duration;
+                    stats.total_idle = stats.total_idle + duration;
                     stats.idle_sessions += 1;
                 }
             }
@@ -85,7 +85,9 @@ impl Reporter {
         let mut week_focus_sessions = 0;
         let mut week_idle_sessions = 0;
 
-        let max_duration = data.daily_stats.values()
+        let max_duration = data
+            .daily_stats
+            .values()
             .map(|s| s.total_focus.max(s.total_idle))
             .max()
             .unwrap_or(Duration::hours(1));
@@ -109,8 +111,20 @@ impl Reporter {
             let focus_bar = generate_bar(stats.total_focus, max_duration, bar_width);
             let idle_bar = generate_bar(stats.total_idle, max_duration, bar_width);
 
-            println!("  Focus: {}[{}] {}{}", color_focus, focus_bar, format_duration(stats.total_focus), color_reset);
-            println!("  Idle:  {}[{}] {}{}", color_idle, idle_bar, format_duration(stats.total_idle), color_reset);
+            println!(
+                "  Focus: {}[{}] {}{}",
+                color_focus,
+                focus_bar,
+                format_duration(stats.total_focus),
+                color_reset
+            );
+            println!(
+                "  Idle:  {}[{}] {}{}",
+                color_idle,
+                idle_bar,
+                format_duration(stats.total_idle),
+                color_reset
+            );
             println!("  Interruptions: {}", stats.idle_sessions);
 
             if stats.focus_sessions > 0 {
@@ -122,21 +136,36 @@ impl Reporter {
                 println!("  Avg Interruption:  {}", format_duration(avg_idle));
             }
 
-            week_total_focus += stats.total_focus;
-            week_total_idle += stats.total_idle;
+            week_total_focus = week_total_focus + stats.total_focus;
+            week_total_idle = week_total_idle + stats.total_idle;
             week_focus_sessions += stats.focus_sessions;
             week_idle_sessions += stats.idle_sessions;
         }
 
-        println!("\n{}Weekly Summary (Starting Monday {}){}", color_bold, data.week_start, color_reset);
+        println!(
+            "\n{}Weekly Summary (Starting Monday {}){}",
+            color_bold, data.week_start, color_reset
+        );
         println!("-------------------------------------------");
 
         let week_max = week_total_focus.max(week_total_idle);
         let week_focus_bar = generate_bar(week_total_focus, week_max, bar_width);
         let week_idle_bar = generate_bar(week_total_idle, week_max, bar_width);
 
-        println!("Total Focus: {}[{}] {}{}", color_focus, week_focus_bar, format_duration(week_total_focus), color_reset);
-        println!("Total Idle:  {}[{}] {}{}", color_idle, week_idle_bar, format_duration(week_total_idle), color_reset);
+        println!(
+            "Total Focus: {}[{}] {}{}",
+            color_focus,
+            week_focus_bar,
+            format_duration(week_total_focus),
+            color_reset
+        );
+        println!(
+            "Total Idle:  {}[{}] {}{}",
+            color_idle,
+            week_idle_bar,
+            format_duration(week_total_idle),
+            color_reset
+        );
         println!("Total Interruptions: {}", week_idle_sessions);
 
         if week_focus_sessions > 0 {

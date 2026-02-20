@@ -15,10 +15,11 @@ pub struct Interval {
 }
 
 impl Interval {
-    pub fn new_at(kind: IntervalType, at: DateTime<Utc>) -> Self {
+    pub fn new(kind: IntervalType) -> Self {
+        let now = Utc::now();
         Self {
-            start: at,
-            end: at,
+            start: now,
+            end: now,
             kind,
         }
     }
