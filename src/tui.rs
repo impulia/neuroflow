@@ -33,10 +33,7 @@ pub fn run_tui(tracker: &mut Tracker) -> Result<()> {
 
     // restore terminal
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen,)?;
     terminal.show_cursor()?;
 
     if let Err(err) = res {
@@ -86,23 +83,37 @@ fn draw_header(frame: &mut Frame, area: Rect, tracker: &Tracker) {
     let now = Local::now();
     let status_text = if let Some(kind) = tracker.last_kind_seen {
         match kind {
-            IntervalType::Focus => Span::styled("IN FLOW", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            IntervalType::Idle => Span::styled("IDLE", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            IntervalType::Focus => Span::styled(
+                "IN FLOW",
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            IntervalType::Idle => Span::styled(
+                "IDLE",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
         }
     } else {
         Span::raw("STARTING...")
     };
 
     let header_content = Line::from(vec![
-        Span::styled(" Neflo ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " Neflo ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" | "),
         status_text,
         Span::raw(" | "),
         Span::raw(now.format("%Y-%m-%d %H:%M:%S").to_string()),
     ]);
 
-    let header = Paragraph::new(header_content)
-        .block(Block::default().borders(Borders::ALL));
+    let header = Paragraph::new(header_content).block(Block::default().borders(Borders::ALL));
     frame.render_widget(header, area);
 }
 
@@ -121,7 +132,11 @@ fn draw_main(frame: &mut Frame, area: Rect, tracker: &Tracker) {
 
 fn draw_stats(frame: &mut Frame, area: Rect, tracker: &Tracker) {
     let stats = calculate_stats(&tracker.db);
-    let today_stats = stats.daily_stats.get(&stats.today).cloned().unwrap_or_default();
+    let today_stats = stats
+        .daily_stats
+        .get(&stats.today)
+        .cloned()
+        .unwrap_or_default();
 
     let mut lines = Vec::new();
 
@@ -132,21 +147,32 @@ fn draw_stats(frame: &mut Frame, area: Rect, tracker: &Tracker) {
             Span::raw("Current Session: "),
             Span::styled(
                 format_duration(session_duration.num_seconds()),
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]));
         lines.push(Line::raw(""));
     }
 
     // Today's Totals
-    lines.push(Line::from(Span::styled("Today's Totals", Style::default().add_modifier(Modifier::UNDERLINED))));
+    lines.push(Line::from(Span::styled(
+        "Today's Totals",
+        Style::default().add_modifier(Modifier::UNDERLINED),
+    )));
     lines.push(Line::from(vec![
         Span::raw("  Focus Time:    "),
-        Span::styled(format_duration(today_stats.total_focus.num_seconds()), Style::default().fg(Color::Green)),
+        Span::styled(
+            format_duration(today_stats.total_focus.num_seconds()),
+            Style::default().fg(Color::Green),
+        ),
     ]));
     lines.push(Line::from(vec![
         Span::raw("  Idle Time:     "),
-        Span::styled(format_duration(today_stats.total_idle.num_seconds()), Style::default().fg(Color::Yellow)),
+        Span::styled(
+            format_duration(today_stats.total_idle.num_seconds()),
+            Style::default().fg(Color::Yellow),
+        ),
     ]));
     lines.push(Line::from(vec![
         Span::raw("  Interruptions: "),
@@ -155,7 +181,10 @@ fn draw_stats(frame: &mut Frame, area: Rect, tracker: &Tracker) {
     lines.push(Line::raw(""));
 
     // Averages
-    lines.push(Line::from(Span::styled("Averages", Style::default().add_modifier(Modifier::UNDERLINED))));
+    lines.push(Line::from(Span::styled(
+        "Averages",
+        Style::default().add_modifier(Modifier::UNDERLINED),
+    )));
     if today_stats.focus_sessions > 0 {
         let avg_focus = today_stats.total_focus / (today_stats.focus_sessions as i32);
         lines.push(Line::from(vec![
@@ -171,8 +200,8 @@ fn draw_stats(frame: &mut Frame, area: Rect, tracker: &Tracker) {
         ]));
     }
 
-    let stats_para = Paragraph::new(lines)
-        .block(Block::default().title(" Summary ").borders(Borders::ALL));
+    let stats_para =
+        Paragraph::new(lines).block(Block::default().title(" Summary ").borders(Borders::ALL));
     frame.render_widget(stats_para, area);
 }
 
@@ -186,7 +215,9 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
     for i in (0..7).rev() {
         let date = stats.today - chrono::Duration::days(i);
         let label = date.format("%a").to_string();
-        let focus_mins = stats.daily_stats.get(&date)
+        let focus_mins = stats
+            .daily_stats
+            .get(&date)
             .map(|s| s.total_focus.num_minutes() as u64)
             .unwrap_or(0);
 
@@ -197,16 +228,27 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
 
     // Ratatui BarChart takes &[(&str, u64)]
     // We need to construct this.
-    let bar_data: Vec<(&str, u64)> = labels.iter().zip(data.iter())
+    let bar_data: Vec<(&str, u64)> = labels
+        .iter()
+        .zip(data.iter())
         .map(|(l, d)| (l.as_str(), *d))
         .collect();
 
     let chart = BarChart::default()
-        .block(Block::default().title(" Focus Time (min) - Last 7 Days ").borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title(" Focus Time (min) - Last 7 Days ")
+                .borders(Borders::ALL),
+        )
         .data(&bar_data)
         .bar_width(7)
         .bar_style(Style::default().fg(Color::Green))
-        .value_style(Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD));
+        .value_style(
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        );
 
     frame.render_widget(chart, area);
 }

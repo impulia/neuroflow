@@ -3,9 +3,9 @@ mod models;
 mod report;
 mod stats;
 mod storage;
-mod tui;
 mod system;
 mod tracker;
+mod tui;
 mod utils;
 
 use anyhow::Result;
