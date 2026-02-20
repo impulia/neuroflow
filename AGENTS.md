@@ -39,6 +39,15 @@ This document outlines the engineering principles and architectural patterns fol
 - **Versioning**: Use major/minor versioning in `Cargo.toml` (e.g., `0.4` instead of `0.4.43`) to maintain compatibility while allowing patch updates.
 - **Environment**: Ensure the project builds and passes tests on both Intel and Apple Silicon macOS environments.
 
+## 7. Mandatory Documentation Updates
+- **Consistency**: Any change to the codebase (new features, refactoring, or bug fixes) **must** be accompanied by an update to the relevant documentation in the `doc/` folder or the root `README.md`.
+
+## 8. Core Engineering Principles
+- **TDD (Test-Driven Development)**: Write tests before or alongside feature implementation to ensure correctness and prevent regressions.
+- **SOLID**: Follow SOLID principles to ensure the software is understandable, flexible, and maintainable.
+- **YAGNI (You Aren't Gonna Need It)**: Do not implement functionality until it is actually needed. Keep the scope focused on the requirements.
+- **KISS (Keep It Simple, Stupid)**: Favor simple, readable solutions over complex ones. Avoid over-engineering.
+
 ---
 
 *Note: For all tasks, agents are expected to use a deep planning mode, asking clarifying questions and verifying assumptions before proceeding with changes.*
