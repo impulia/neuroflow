@@ -31,7 +31,6 @@ impl Tracker {
         io::stdout().flush()?;
 
         println!("Neflo started. Press Ctrl+C to stop.");
-        println!("Threshold: {} minutes", self.threshold_secs / 60.0);
 
         let mut last_save = Utc::now();
         let mut last_kind_seen = None;
@@ -70,7 +69,7 @@ impl Tracker {
                 IntervalType::Focus => {
                     let flow_time = now - state_start;
                     print!(
-                        "\rStatus: \x1b[32mIn Flow\x1b[0m (Flow Time: {}) (Idle: {} / {})    ",
+                        "\r\x1b[32mIn Flow\x1b[0m: {}  / Idle: {}  (max {})    ",
                         format_duration(flow_time.num_seconds()),
                         format_duration(idle_time as i64),
                         format_duration(self.threshold_secs as i64)
@@ -79,7 +78,7 @@ impl Tracker {
                 IntervalType::Idle => {
                     let idle_time_since_transition = now - state_start;
                     print!(
-                        "\rStatus: \x1b[33mIdle\x1b[0m (Idle Time: {})    ",
+                        "\r\x1b[33mIdle\x1b[0m: {}    ",
                         format_duration(idle_time_since_transition.num_seconds())
                     );
                 }
