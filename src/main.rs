@@ -1,7 +1,9 @@
 mod config;
 mod models;
 mod report;
+mod stats;
 mod storage;
+mod tui;
 mod system;
 mod tracker;
 mod utils;
@@ -9,8 +11,6 @@ mod utils;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use report::Reporter;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use storage::Storage;
 use tracker::Tracker;
 
@@ -42,17 +42,12 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Start { threshold } => {
             let threshold = threshold.unwrap_or(config.default_threshold_mins);
-            let tracker = Tracker::new(storage, threshold);
+            let mut tracker = Tracker::new(storage, threshold)?;
 
-            let running = Arc::new(AtomicBool::new(true));
-            let r = running.clone();
+            tui::run_tui(&mut tracker)?;
 
-            ctrlc::set_handler(move || {
-                r.store(false, Ordering::SeqCst);
-            })
-            .expect("Error setting Ctrl-C handler");
-
-            tracker.start(running)?;
+            // Final save
+            tracker.storage.save(&tracker.db)?;
         }
         Commands::Report => {
             let reporter = Reporter::new(storage);

@@ -1,20 +1,11 @@
-use crate::models::IntervalType;
+use crate::stats::calculate_stats;
 use crate::storage::Storage;
 use crate::utils::format_duration;
 use anyhow::Result;
-use chrono::{Datelike, Duration, Local};
-use std::collections::BTreeMap;
+use chrono::Duration;
 
 pub struct Reporter {
     storage: Storage,
-}
-
-#[derive(Default)]
-struct DayStats {
-    total_focus: Duration,
-    total_idle: Duration,
-    focus_sessions: u32,
-    idle_sessions: u32,
 }
 
 impl Reporter {
@@ -29,33 +20,7 @@ impl Reporter {
             return Ok(());
         }
 
-        let now_local = Local::now();
-        let today_local = now_local.date_naive();
-
-        // Find the start of the current week (Monday)
-        let days_from_monday = now_local.weekday().num_days_from_monday();
-        let week_start = today_local - Duration::days(days_from_monday as i64);
-
-        let mut daily_stats: BTreeMap<chrono::NaiveDate, DayStats> = BTreeMap::new();
-
-        for interval in &db.intervals {
-            let start_local = interval.start.with_timezone(&Local);
-
-            let date = start_local.date_naive();
-            let duration = interval.end - interval.start;
-
-            let stats = daily_stats.entry(date).or_default();
-            match interval.kind {
-                IntervalType::Focus => {
-                    stats.total_focus += duration;
-                    stats.focus_sessions += 1;
-                }
-                IntervalType::Idle => {
-                    stats.total_idle += duration;
-                    stats.idle_sessions += 1;
-                }
-            }
-        }
+        let stats_data = calculate_stats(&db);
 
         println!("Neflo Report");
         println!("============");
@@ -65,12 +30,12 @@ impl Reporter {
         let mut week_focus_sessions = 0;
         let mut week_idle_sessions = 0;
 
-        for (date, stats) in &daily_stats {
-            if *date < week_start {
+        for (date, stats) in &stats_data.daily_stats {
+            if *date < stats_data.week_start {
                 continue;
             }
 
-            let is_today = *date == today_local;
+            let is_today = *date == stats_data.today;
             let date_str = if is_today {
                 format!("{} (Today)", date)
             } else {
@@ -109,7 +74,7 @@ impl Reporter {
             week_idle_sessions += stats.idle_sessions;
         }
 
-        println!("\nWeekly Summary (Starting Monday {})", week_start);
+        println!("\nWeekly Summary (Starting Monday {})", stats_data.week_start);
         println!("-------------------------------------------");
         println!(
             "Total Focus Time:    {}",
