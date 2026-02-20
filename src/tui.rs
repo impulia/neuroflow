@@ -13,9 +13,9 @@ use crossterm::{
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
-    widgets::{BarChart, Block, Borders, Paragraph},
+    widgets::{Block, Borders, Paragraph},
     Frame, Terminal,
 };
 use std::io;
@@ -52,8 +52,10 @@ fn run_loop(
 
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                if let KeyCode::Char('q') = key.code {
-                    return Ok(());
+                match key.code {
+                    KeyCode::Char('q') => return Ok(()),
+                    KeyCode::Char('r') => tracker.reset()?,
+                    _ => {}
                 }
             }
         }
@@ -68,15 +70,17 @@ pub fn draw(frame: &mut Frame, tracker: &Tracker) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3), // Header
-            Constraint::Min(0),    // Main content
-            Constraint::Length(3), // Footer
+            Constraint::Length(3),  // Header
+            Constraint::Length(10), // Stats
+            Constraint::Min(0),     // Chart
+            Constraint::Length(3),  // Footer
         ])
         .split(frame.size());
 
     draw_header(frame, chunks[0], tracker);
-    draw_main(frame, chunks[1], tracker);
-    draw_footer(frame, chunks[2]);
+    draw_stats(frame, chunks[1], tracker);
+    draw_chart(frame, chunks[2], tracker);
+    draw_footer(frame, chunks[3]);
 }
 
 fn draw_header(frame: &mut Frame, area: Rect, tracker: &Tracker) {
@@ -117,19 +121,6 @@ fn draw_header(frame: &mut Frame, area: Rect, tracker: &Tracker) {
     frame.render_widget(header, area);
 }
 
-fn draw_main(frame: &mut Frame, area: Rect, tracker: &Tracker) {
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(40), // Stats
-            Constraint::Percentage(60), // Chart
-        ])
-        .split(area);
-
-    draw_stats(frame, chunks[0], tracker);
-    draw_chart(frame, chunks[1], tracker);
-}
-
 fn draw_stats(frame: &mut Frame, area: Rect, tracker: &Tracker) {
     let stats = calculate_stats(&tracker.db);
     let today_stats = stats
@@ -138,12 +129,42 @@ fn draw_stats(frame: &mut Frame, area: Rect, tracker: &Tracker) {
         .cloned()
         .unwrap_or_default();
 
-    let mut lines = Vec::new();
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(area);
+
+    // Left side: Today's Totals
+    let mut total_lines = vec![
+        Line::from(Span::styled(
+            "Today's Totals",
+            Style::default().add_modifier(Modifier::UNDERLINED),
+        )),
+        Line::from(vec![
+            Span::raw("  Focus Time:    "),
+            Span::styled(
+                format_duration(today_stats.total_focus.num_seconds()),
+                Style::default().fg(Color::Green),
+            ),
+        ]),
+        Line::from(vec![
+            Span::raw("  Idle Time:     "),
+            Span::styled(
+                format_duration(today_stats.total_idle.num_seconds()),
+                Style::default().fg(Color::Yellow),
+            ),
+        ]),
+        Line::from(vec![
+            Span::raw("  Interruptions: "),
+            Span::raw(today_stats.idle_sessions.to_string()),
+        ]),
+        Line::raw(""),
+    ];
 
     // Current Session
     if tracker.last_kind_seen.is_some() {
         let session_duration = chrono::Utc::now() - tracker.state_start;
-        lines.push(Line::from(vec![
+        total_lines.push(Line::from(vec![
             Span::raw("Current Session: "),
             Span::styled(
                 format_duration(session_duration.num_seconds()),
@@ -152,109 +173,137 @@ fn draw_stats(frame: &mut Frame, area: Rect, tracker: &Tracker) {
                     .add_modifier(Modifier::BOLD),
             ),
         ]));
-        lines.push(Line::raw(""));
     }
 
-    // Today's Totals
-    lines.push(Line::from(Span::styled(
-        "Today's Totals",
-        Style::default().add_modifier(Modifier::UNDERLINED),
-    )));
-    lines.push(Line::from(vec![
-        Span::raw("  Focus Time:    "),
-        Span::styled(
-            format_duration(today_stats.total_focus.num_seconds()),
-            Style::default().fg(Color::Green),
-        ),
-    ]));
-    lines.push(Line::from(vec![
-        Span::raw("  Idle Time:     "),
-        Span::styled(
-            format_duration(today_stats.total_idle.num_seconds()),
-            Style::default().fg(Color::Yellow),
-        ),
-    ]));
-    lines.push(Line::from(vec![
-        Span::raw("  Interruptions: "),
-        Span::raw(today_stats.idle_sessions.to_string()),
-    ]));
-    lines.push(Line::raw(""));
+    let totals_para =
+        Paragraph::new(total_lines).block(Block::default().title(" Totals ").borders(Borders::ALL));
+    frame.render_widget(totals_para, chunks[0]);
 
-    // Averages
-    lines.push(Line::from(Span::styled(
+    // Right side: Averages
+    let mut avg_lines = vec![Line::from(Span::styled(
         "Averages",
         Style::default().add_modifier(Modifier::UNDERLINED),
-    )));
+    ))];
     if today_stats.focus_sessions > 0 {
         let avg_focus = today_stats.total_focus / (today_stats.focus_sessions as i32);
-        lines.push(Line::from(vec![
+        avg_lines.push(Line::from(vec![
             Span::raw("  Avg Focus:     "),
             Span::raw(format_duration(avg_focus.num_seconds())),
         ]));
     }
     if today_stats.idle_sessions > 0 {
         let avg_idle = today_stats.total_idle / (today_stats.idle_sessions as i32);
-        lines.push(Line::from(vec![
+        avg_lines.push(Line::from(vec![
             Span::raw("  Avg Idle:      "),
             Span::raw(format_duration(avg_idle.num_seconds())),
         ]));
     }
 
-    let stats_para =
-        Paragraph::new(lines).block(Block::default().title(" Summary ").borders(Borders::ALL));
-    frame.render_widget(stats_para, area);
+    let averages_para =
+        Paragraph::new(avg_lines).block(Block::default().title(" Averages ").borders(Borders::ALL));
+    frame.render_widget(averages_para, chunks[1]);
 }
 
 fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
     let stats = calculate_stats(&tracker.db);
 
-    // Get last 7 days of focus time
-    let mut data = Vec::new();
-    let mut labels = Vec::new();
+    let chart_block = Block::default()
+        .title(" Focus (Green) & Idle (Yellow) - Last 7 Days ")
+        .borders(Borders::ALL);
+    let inner_area = chart_block.inner(area);
+    frame.render_widget(chart_block, area);
+
+    if inner_area.height < 2 || inner_area.width < 14 {
+        return;
+    }
+
+    // Get last 7 days
+    let mut days_data = Vec::new();
+    let mut max_total_secs = 1;
 
     for i in (0..7).rev() {
         let date = stats.today - chrono::Duration::days(i);
-        let label = date.format("%a").to_string();
-        let focus_mins = stats
-            .daily_stats
-            .get(&date)
-            .map(|s| s.total_focus.num_minutes() as u64)
-            .unwrap_or(0);
-
-        // We need to keep strings alive if we use &str, or use Bar
-        labels.push(label);
-        data.push(focus_mins);
+        let day_stats = stats.daily_stats.get(&date).cloned().unwrap_or_default();
+        let focus_secs = day_stats.total_focus.num_seconds();
+        let idle_secs = day_stats.total_idle.num_seconds();
+        let total_secs = focus_secs + idle_secs;
+        if total_secs > max_total_secs {
+            max_total_secs = total_secs;
+        }
+        days_data.push((date.format("%a").to_string(), focus_secs, idle_secs));
     }
 
-    // Ratatui BarChart takes &[(&str, u64)]
-    // We need to construct this.
-    let bar_data: Vec<(&str, u64)> = labels
-        .iter()
-        .zip(data.iter())
-        .map(|(l, d)| (l.as_str(), *d))
-        .collect();
+    let columns = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(14),
+            Constraint::Percentage(14),
+            Constraint::Percentage(14),
+            Constraint::Percentage(14),
+            Constraint::Percentage(14),
+            Constraint::Percentage(14),
+            Constraint::Percentage(14),
+        ])
+        .split(inner_area);
 
-    let chart = BarChart::default()
-        .block(
-            Block::default()
-                .title(" Focus Time (min) - Last 7 Days ")
-                .borders(Borders::ALL),
-        )
-        .data(&bar_data)
-        .bar_width(7)
-        .bar_style(Style::default().fg(Color::Green))
-        .value_style(
-            Style::default()
-                .fg(Color::Black)
-                .bg(Color::Green)
-                .add_modifier(Modifier::BOLD),
+    for (i, (label, focus, idle)) in days_data.into_iter().enumerate() {
+        let col_area = columns[i];
+
+        let bar_label_split = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(0), Constraint::Length(1)])
+            .split(col_area);
+
+        let bar_area = bar_label_split[0];
+        let label_area = bar_label_split[1];
+
+        // Center the bar horizontally within the column
+        let bar_width = 5.min(bar_area.width);
+        let bar_x_offset = (bar_area.width - bar_width) / 2;
+        let centered_bar_area = Rect::new(
+            bar_area.x + bar_x_offset,
+            bar_area.y,
+            bar_width,
+            bar_area.height,
         );
 
-    frame.render_widget(chart, area);
+        // Draw label
+        frame.render_widget(
+            Paragraph::new(label).alignment(ratatui::layout::Alignment::Center),
+            label_area,
+        );
+
+        // Draw bar
+        if centered_bar_area.height > 0 {
+            let total_height = centered_bar_area.height as i64;
+            let focus_height = (focus * total_height / max_total_secs) as u16;
+            let idle_height = (idle * total_height / max_total_secs) as u16;
+
+            let remaining_height = centered_bar_area
+                .height
+                .saturating_sub(focus_height + idle_height);
+
+            let bar_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(remaining_height),
+                    Constraint::Length(idle_height),
+                    Constraint::Length(focus_height),
+                ])
+                .split(centered_bar_area);
+
+            if idle_height > 0 {
+                frame.render_widget(Block::default().bg(Color::Yellow), bar_chunks[1]);
+            }
+            if focus_height > 0 {
+                frame.render_widget(Block::default().bg(Color::Green), bar_chunks[2]);
+            }
+        }
+    }
 }
 
 fn draw_footer(frame: &mut Frame, area: Rect) {
-    let help = Paragraph::new("Press 'q' to quit | Neflo TUI v0.1.0")
+    let help = Paragraph::new("Press 'q' to quit | 'r' to reset | Neflo TUI v0.1.0")
         .block(Block::default().borders(Borders::ALL))
         .alignment(ratatui::layout::Alignment::Center);
     frame.render_widget(help, area);

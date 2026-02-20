@@ -53,6 +53,12 @@ impl Tracker {
         Ok(())
     }
 
+    pub fn reset(&mut self) -> Result<()> {
+        self.db.intervals.clear();
+        self.storage.save(&self.db)?;
+        Ok(())
+    }
+
     pub fn update_db(
         &mut self,
         current_kind: IntervalType,
