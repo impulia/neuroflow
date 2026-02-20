@@ -4,6 +4,7 @@ mod system;
 mod tracker;
 mod report;
 mod config;
+mod tui;
 
 use clap::{Parser, Subcommand};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -30,7 +31,11 @@ enum Commands {
         threshold: Option<u64>,
     },
     /// Generate a report of focus/idle time
-    Report,
+    Report {
+        /// Show report in Terminal UI mode
+        #[arg(long)]
+        tui: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -52,9 +57,13 @@ fn main() -> Result<()> {
 
             tracker.start(running)?;
         }
-        Commands::Report => {
+        Commands::Report { tui } => {
             let reporter = Reporter::new(storage);
-            reporter.report()?;
+            if tui {
+                tui::show_tui(reporter)?;
+            } else {
+                reporter.report()?;
+            }
         }
     }
 
