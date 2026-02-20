@@ -4,6 +4,7 @@ mod report;
 mod storage;
 mod system;
 mod tracker;
+mod utils;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
