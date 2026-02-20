@@ -48,6 +48,11 @@ This document outlines the engineering principles and architectural patterns fol
 - **YAGNI (You Aren't Gonna Need It)**: Do not implement functionality until it is actually needed. Keep the scope focused on the requirements.
 - **KISS (Keep It Simple, Stupid)**: Favor simple, readable solutions over complex ones. Avoid over-engineering.
 
+## 9. Versioning and Releases
+- **Conventional Commits**: All Pull Request titles must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification (e.g., `feat: add new feature`, `fix: resolve bug`). This is enforced via CI and is used to automatically determine the next version and generate changelogs.
+- **Automated Releases**: Neflo uses an automated release system (`release-plz`). Every merge to the `main` branch triggers an automatic version bump (if applicable), a new Git tag, a GitHub Release with compiled macOS binaries, and an update to the `CHANGELOG.md`.
+- **Hands-off Process**: Do not manually update the version in `Cargo.toml` or update the `CHANGELOG.md` unless specifically instructed. The automated system handles these during the release process.
+
 ---
 
 *Note: For all tasks, agents are expected to use a deep planning mode, asking clarifying questions and verifying assumptions before proceeding with changes.*
