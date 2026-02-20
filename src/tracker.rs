@@ -1,6 +1,7 @@
 use crate::models::{Database, Interval, IntervalType};
 use crate::storage::Storage;
 use crate::system::get_idle_time;
+use crate::utils::format_duration;
 use anyhow::Result;
 use chrono::Utc;
 use std::io::{self, Write};
@@ -25,11 +26,16 @@ impl Tracker {
     pub fn start(&self, running: Arc<AtomicBool>) -> Result<()> {
         let mut db = self.storage.load()?;
 
+        // Clear screen
+        print!("\x1B[2J\x1B[1;1H");
+        io::stdout().flush()?;
+
         println!("Neflo started. Press Ctrl+C to stop.");
         println!("Threshold: {} minutes", self.threshold_secs / 60.0);
 
         let mut last_save = Utc::now();
         let mut last_kind_seen = None;
+        let mut state_start = Utc::now();
 
         while running.load(Ordering::SeqCst) {
             let idle_time = get_idle_time();
@@ -45,21 +51,39 @@ impl Tracker {
             // Update database
             self.update_db(&mut db, current_kind, idle_time, now);
 
-            // Save on transition or every 30 seconds
-            if Some(current_kind) != last_kind_seen
-                || now - last_save > chrono::Duration::seconds(30)
-            {
+            // Handle state transition
+            if Some(current_kind) != last_kind_seen {
+                state_start = now;
+                last_kind_seen = Some(current_kind);
                 self.storage.save(&db)?;
                 last_save = now;
-                last_kind_seen = Some(current_kind);
+            }
+
+            // Save every 30 seconds
+            if now - last_save > chrono::Duration::seconds(30) {
+                self.storage.save(&db)?;
+                last_save = now;
             }
 
             // Update UI
-            let status = match current_kind {
-                IntervalType::Focus => "\x1b[32mIn Flow\x1b[0m",
-                IntervalType::Idle => "\x1b[33mIdle\x1b[0m",
+            match current_kind {
+                IntervalType::Focus => {
+                    let flow_time = now - state_start;
+                    print!(
+                        "\rStatus: \x1b[32mIn Flow\x1b[0m (Flow Time: {}) (Idle: {} / {})    ",
+                        format_duration(flow_time.num_seconds()),
+                        format_duration(idle_time as i64),
+                        format_duration(self.threshold_secs as i64)
+                    );
+                }
+                IntervalType::Idle => {
+                    let idle_time_since_transition = now - state_start;
+                    print!(
+                        "\rStatus: \x1b[33mIdle\x1b[0m (Idle Time: {})    ",
+                        format_duration(idle_time_since_transition.num_seconds())
+                    );
+                }
             };
-            print!("\rStatus: {} (Idle time: {:.0}s)    ", status, idle_time);
             io::stdout().flush()?;
 
             thread::sleep(Duration::from_secs(1));
