@@ -1,0 +1,7 @@
+[workspace]
+# Only release the neflo package
+packages = ["neflo"]
+
+[release]
+# We will handle crates.io publishing in the workflow by passing the token if available
+publish = true

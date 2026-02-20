@@ -53,7 +53,7 @@ We use the `tempfile` crate in tests to ensure that the actual user database is 
 2. Create a feature branch.
 3. Implement your changes and add tests if applicable.
 4. Run `cargo test` and `cargo clippy`.
-5. Submit a Pull Request.
+5. Submit a Pull Request. **Ensure the PR title follows [Conventional Commits](https://www.conventionalcommits.org/) format** (e.g., `feat: add new feature`). This is required for our automated versioning system.
 
 ---
 
