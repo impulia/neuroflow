@@ -45,6 +45,14 @@ neflo report
 
 This will print today's statistics directly to your terminal.
 
+## Updating Neflo
+
+To update Neflo to the latest version directly from GitHub:
+
+```bash
+neflo self-update
+```
+
 ## Data Storage
 
 Neflo stores its data and configuration in your home directory:

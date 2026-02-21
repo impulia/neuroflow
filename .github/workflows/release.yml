@@ -48,14 +48,25 @@ jobs:
           ref: ${{ fromJSON(needs.release.outputs.releases)[0].tag }}
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
-      - name: Build release binary
-        run: cargo build --release
+      - name: Build release binaries
+        run: |
+          cargo build --release --target aarch64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+      - name: Create universal binary
+        run: |
+          lipo -create \
+            target/aarch64-apple-darwin/release/${{ env.PACKAGE_NAME }} \
+            target/x86_64-apple-darwin/release/${{ env.PACKAGE_NAME }} \
+            -output ${{ env.PACKAGE_NAME }}
+          tar -czf ${{ env.PACKAGE_NAME }}-macos.tar.gz ${{ env.PACKAGE_NAME }}
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
         with:
-          files: target/release/${{ env.PACKAGE_NAME }}
+          files: ${{ env.PACKAGE_NAME }}-macos.tar.gz
           tag_name: ${{ fromJSON(needs.release.outputs.releases)[0].tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

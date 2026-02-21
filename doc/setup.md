@@ -10,6 +10,20 @@ This guide will help you get Neflo up and running on your macOS system.
 
 ## Installation
 
+### Download Universal Binary (Recommended)
+
+Neflo provides a universal binary for macOS that runs natively on both Intel and Apple Silicon (M1/M2/M3) Macs.
+
+1.  Download the latest `neflo-macos.tar.gz` from the [GitHub Releases](https://github.com/impulia/neuroflow/releases) page.
+2.  Extract the archive:
+    ```bash
+    tar -xzf neflo-macos.tar.gz
+    ```
+3.  Move the binary to your path:
+    ```bash
+    mv neflo /usr/local/bin/
+    ```
+
 ### From Source
 
 1. **Clone the repository**:
