@@ -6,6 +6,7 @@ mod storage;
 mod system;
 mod tracker;
 mod tui;
+mod update;
 mod utils;
 
 use anyhow::Result;
@@ -32,6 +33,8 @@ enum Commands {
     },
     /// Generate a report of focus/idle time
     Report,
+    /// Update neflo to the latest version
+    SelfUpdate,
 }
 
 fn main() -> Result<()> {
@@ -52,6 +55,9 @@ fn main() -> Result<()> {
         Commands::Report => {
             let reporter = Reporter::new(storage);
             reporter.report()?;
+        }
+        Commands::SelfUpdate => {
+            update::update()?;
         }
     }
 
