@@ -6,7 +6,8 @@ pub fn update() -> Result<()> {
     println!("Checking for updates...");
 
     let mut builder = self_update::backends::github::Update::configure();
-    builder.repo_owner("impulia")
+    builder
+        .repo_owner("impulia")
         .repo_name("neuroflow")
         .bin_name("neflo")
         .show_download_progress(true)
@@ -14,7 +15,9 @@ pub fn update() -> Result<()> {
         .no_confirm(true)
         .target("macos");
 
-    if let Ok(token) = std::env::var("NEFLO_GITHUB_TOKEN").or_else(|_| std::env::var("GITHUB_TOKEN")) {
+    if let Ok(token) =
+        std::env::var("NEFLO_GITHUB_TOKEN").or_else(|_| std::env::var("GITHUB_TOKEN"))
+    {
         builder.auth_token(&token);
     }
 
