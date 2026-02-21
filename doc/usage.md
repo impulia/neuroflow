@@ -24,6 +24,8 @@ The threshold is specified in minutes.
 
 When you run `neflo start`, a Terminal User Interface (TUI) opens.
 
+![Neflo TUI Screenshot](../assets/screenshot.png)
+
 ### Layout
 - **Header**: Shows the current status (IN FLOW or IDLE) and the current time.
 - **Totals**: Displays today's total focus time, idle time, and the number of interruptions.
