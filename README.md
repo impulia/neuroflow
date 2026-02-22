@@ -13,6 +13,8 @@ Neflo is a simple, lightweight CLI application for macOS that tracks your focus 
     - Average length of focus and idle sessions.
 - **Configurable**: Easily adjust the idle threshold via command-line flags or a configuration file.
 
+![Neflo TUI Screenshot](assets/screenshot.png)
+
 ## Documentation
 
 Comprehensive documentation is available in the [doc/](doc/index.md) folder:
