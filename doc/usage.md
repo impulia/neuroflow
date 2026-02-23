@@ -45,7 +45,7 @@ If you want a quick summary without opening the TUI, use the `report` command:
 neflo report
 ```
 
-This will print today's statistics directly to your terminal.
+This will print the current week's statistics (starting from Monday) directly to your terminal. Note that while Neflo retains up to 30 days of data, the report focuses exclusively on the current week.
 
 ## Updating Neflo
 

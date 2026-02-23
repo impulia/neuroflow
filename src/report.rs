@@ -30,8 +30,10 @@ impl Reporter {
         let mut week_focus_sessions = 0;
         let mut week_idle_sessions = 0;
 
+        let week_end = stats_data.week_start + Duration::days(6);
+
         for (date, stats) in &stats_data.daily_stats {
-            if *date < stats_data.week_start {
+            if *date < stats_data.week_start || *date > week_end {
                 continue;
             }
 

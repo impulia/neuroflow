@@ -11,7 +11,9 @@ mod utils;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use fd_lock::RwLock;
 use report::Reporter;
+use std::fs::OpenOptions;
 use storage::Storage;
 use tracker::Tracker;
 
@@ -44,6 +46,19 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Start { threshold } => {
+            let base_dir = Storage::get_base_dir()?;
+            let lock_path = base_dir.join("neflo.lock");
+            let lock_file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .open(lock_path)?;
+
+            let mut lock = RwLock::new(lock_file);
+            let _guard = lock.try_write().map_err(|_| {
+                anyhow::anyhow!("Another instance of Neflo is already running. Please close it before starting a new one.")
+            })?;
+
             let threshold = threshold.unwrap_or(config.default_threshold_mins);
             let mut tracker = Tracker::new(storage, threshold)?;
 
