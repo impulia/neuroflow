@@ -1,9 +1,6 @@
 [workspace]
-# Only release the neflo package
 packages = ["neflo"]
 
-[[package]]
+[[packages]]
 name = "neflo"
-# We disabled crates.io publishing to ensure GitHub releases succeed even without a registry token.
-# To enable crates.io publishing, set this to true and ensure CARGO_REGISTRY_TOKEN is set in GitHub Secrets.
 publish = false
