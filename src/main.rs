@@ -52,6 +52,7 @@ fn main() -> Result<()> {
                 .read(true)
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .open(lock_path)?;
 
             let mut lock = RwLock::new(lock_file);
