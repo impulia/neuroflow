@@ -3,5 +3,6 @@
 packages = ["neflo"]
 
 [release]
-# We will handle crates.io publishing in the workflow by passing the token if available
-publish = true
+# We disabled crates.io publishing to ensure GitHub releases succeed even without a registry token.
+# To enable crates.io publishing, set this to true and ensure CARGO_REGISTRY_TOKEN is set in GitHub Secrets.
+publish = false
