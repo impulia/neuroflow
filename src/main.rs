@@ -32,15 +32,15 @@ enum Commands {
         /// Idle threshold in minutes
         #[arg(short, long)]
         threshold: Option<u64>,
-        /// Start time (HH:MM)
-        #[arg(long)]
+        /// Start time in 24h format (HH:MM)
+        #[arg(short, long)]
         start_time: Option<String>,
-        /// End time (HH:MM)
-        #[arg(long)]
+        /// End time in 24h format (HH:MM)
+        #[arg(short, long)]
         end_time: Option<String>,
-        /// Timeout duration (e.g. 8h, 30m)
-        #[arg(long)]
-        timeout: Option<String>,
+        /// Session duration (e.g. 8h, 30m)
+        #[arg(short, long)]
+        duration: Option<String>,
     },
     /// Generate a report of focus/idle time
     Report,
@@ -58,7 +58,7 @@ fn main() -> Result<()> {
             threshold,
             start_time,
             end_time,
-            timeout,
+            duration,
         } => {
             let base_dir = Storage::get_base_dir()?;
             let lock_path = base_dir.join("neflo.lock");
@@ -77,10 +77,10 @@ fn main() -> Result<()> {
             let threshold = threshold.unwrap_or(config.default_threshold_mins);
             let start_time = start_time.or(config.start_time);
             let end_time = end_time.or(config.end_time);
-            let timeout = timeout.or(config.timeout);
+            let duration = duration.or(config.duration);
 
             let mut tracker =
-                Tracker::new(storage.clone(), threshold, start_time, end_time, timeout)?;
+                Tracker::new(storage.clone(), threshold, start_time, end_time, duration)?;
 
             tui::run_tui(&mut tracker)?;
 

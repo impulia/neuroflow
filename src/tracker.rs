@@ -12,7 +12,7 @@ pub struct Tracker {
     pub last_save: DateTime<Utc>,
     pub start_time: Option<NaiveTime>,
     pub end_time: Option<NaiveTime>,
-    pub timeout: Option<chrono::Duration>,
+    pub duration: Option<chrono::Duration>,
     pub run_start_time: DateTime<Utc>,
     pub session_ended_saved: bool,
 }
@@ -23,7 +23,7 @@ impl Tracker {
         threshold_mins: u64,
         start_time: Option<String>,
         end_time: Option<String>,
-        timeout: Option<String>,
+        duration: Option<String>,
     ) -> Result<Self> {
         let db = storage.load()?;
         let now = Utc::now();
@@ -34,7 +34,7 @@ impl Tracker {
         let parsed_end_time = end_time
             .map(|s| NaiveTime::parse_from_str(&s, "%H:%M"))
             .transpose()?;
-        let parsed_timeout = timeout
+        let parsed_duration = duration
             .map(|s| -> Result<chrono::Duration> {
                 let d = humantime::parse_duration(&s)?;
                 Ok(chrono::Duration::from_std(d)?)
@@ -50,7 +50,7 @@ impl Tracker {
             last_save: now,
             start_time: parsed_start_time,
             end_time: parsed_end_time,
-            timeout: parsed_timeout,
+            duration: parsed_duration,
             run_start_time: now,
             session_ended_saved: false,
         };
@@ -59,7 +59,7 @@ impl Tracker {
     }
 
     pub fn should_track(&self, now: DateTime<Utc>) -> bool {
-        if self.timeout.is_some() {
+        if self.duration.is_some() {
             return true;
         }
         if let Some(st) = self.start_time {
@@ -71,8 +71,8 @@ impl Tracker {
     }
 
     pub fn should_stop(&self, now: DateTime<Utc>) -> bool {
-        if let Some(timeout) = self.timeout {
-            if now - self.run_start_time >= timeout {
+        if let Some(duration) = self.duration {
+            if now - self.run_start_time >= duration {
                 return true;
             }
         } else if let Some(et) = self.end_time {
@@ -391,10 +391,10 @@ mod tests {
     }
 
     #[test]
-    fn test_should_stop_timeout() {
+    fn test_should_stop_duration() {
         let storage = Storage::from_path(PathBuf::from("dummy"));
-        let timeout = Some("1h".to_string());
-        let mut tracker = Tracker::new(storage, 5, None, None, timeout).unwrap();
+        let duration = Some("1h".to_string());
+        let mut tracker = Tracker::new(storage, 5, None, None, duration).unwrap();
 
         let start = Utc::now();
         tracker.run_start_time = start;
@@ -404,11 +404,11 @@ mod tests {
     }
 
     #[test]
-    fn test_timeout_prevails_over_start_time() {
+    fn test_duration_prevails_over_start_time() {
         let storage = Storage::from_path(PathBuf::from("dummy"));
         let st = Some("09:00".to_string());
-        let timeout = Some("1h".to_string());
-        let tracker = Tracker::new(storage, 5, st, None, timeout).unwrap();
+        let duration = Some("1h".to_string());
+        let tracker = Tracker::new(storage, 5, st, None, duration).unwrap();
 
         // 08:00 today - should track because timeout is set
         let t1 = Utc::now().with_timezone(&Local);

@@ -26,26 +26,26 @@ Neflo allows you to limit the tracking session to a specific time window or dura
 
 #### Start and End Times
 
-You can specify a start time, an end time, or both. If a start time is set, the app will wait (displaying "WAITING") until that time is reached before it starts tracking. If an end time is set, the app will stop tracking (displaying "SESSION ENDED") once that time is reached.
+You can specify a start time, an end time, or both using 24h format (HH:MM). If a start time is set, the app will wait (displaying "WAITING") until that time is reached before it starts tracking. If an end time is set, the app will stop tracking (displaying "SESSION ENDED") once that time is reached.
 
 ```bash
-# Start tracking at 9:00 AM
-neflo start --start-time 09:00
+# Start tracking at 9:00 AM (24h format)
+neflo start -s 09:00
 
-# Stop tracking at 6:00 PM
-neflo start --end-time 18:00
+# Stop tracking at 6:00 PM (24h format)
+neflo start -e 18:00
 ```
 
-#### Timeout
+#### Duration
 
-You can specify a duration for the session. If a timeout is set, it takes precedence over start/end times: tracking starts immediately and stops once the duration has elapsed.
+You can specify a duration for the session (e.g., `8h`, `30m`). If a duration is set, it takes precedence over start/end times: tracking starts immediately and stops once the duration has elapsed.
 
 ```bash
 # Track for 4 hours
-neflo start --timeout 4h
+neflo start -d 4h
 
 # Track for 30 minutes
-neflo start --timeout 30m
+neflo start -d 30m
 ```
 
 ## The TUI Dashboard

@@ -141,11 +141,11 @@ fn draw_header(frame: &mut Frame, area: Rect, tracker: &Tracker) {
         Span::raw(now_local.format("%Y-%m-%d %H:%M:%S").to_string()),
     ];
 
-    if let Some(timeout) = tracker.timeout {
+    if let Some(duration) = tracker.duration {
         let elapsed = now_utc - tracker.run_start_time;
-        let remaining = timeout - elapsed;
+        let remaining = duration - elapsed;
         if remaining.num_seconds() > 0 {
-            header_spans.push(Span::raw(" | Timeout: "));
+            header_spans.push(Span::raw(" | Duration: "));
             header_spans.push(Span::styled(
                 format_duration(remaining.num_seconds()),
                 Style::default().fg(Color::Magenta),
