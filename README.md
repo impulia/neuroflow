@@ -57,7 +57,16 @@ You can specify a custom idle threshold (in minutes) using the `--threshold` fla
 neflo start --threshold 10
 ```
 
-To stop tracking, simply press `Ctrl+C`.
+### Session Limits
+
+You can set a start/end time or a timeout for your session:
+
+```bash
+# Start at 9:00 AM and stop after 8 hours
+neflo start --start-time 09:00 --timeout 8h
+```
+
+To stop tracking manually, simply press `q` in the TUI or `Ctrl+C`.
 
 ### View Reports
 
@@ -79,7 +88,10 @@ Neflo stores its data and configuration in the `~/.neflo` directory:
 Example `config.json`:
 ```json
 {
-  "default_threshold_mins": 5
+  "default_threshold_mins": 5,
+  "start_time": "09:00",
+  "end_time": "18:00",
+  "timeout": "8h"
 }
 ```
 
