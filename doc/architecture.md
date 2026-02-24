@@ -22,10 +22,11 @@ The TUI is built using the `ratatui` and `crossterm` crates. It uses a non-block
 - Poll the system for idle time updates.
 
 ### 4. Persistence Layer (`src/storage.rs`)
-Data is stored in a JSON file (`db.json`). To ensure data safety:
-- Data is saved upon every state transition.
-- Data is periodically saved every 30 seconds.
-- A final save is performed when the application exits gracefully.
+Data is stored in a JSON file (`db.json`) located in `~/.neflo/`. To ensure data safety:
+- **Atomic Saves**: Data is written to a temporary file and then renamed to `db.json` to prevent corruption.
+- **File Locking**: An advisory lock file (`neflo.lock`) is used to prevent multiple instances from writing to the same database simultaneously.
+- **Data Retention**: The database automatically prunes records older than 30 days to maintain performance and keep the data relevant.
+- **Auto-Save**: Data is saved upon every state transition, periodically every 30 seconds, and upon application exit.
 
 ### 5. Statistics Engine (`src/stats.rs`)
 Calculations for daily and weekly summaries are centralized. This ensures consistency between the TUI and the CLI reports.

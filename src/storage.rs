@@ -8,10 +8,18 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub fn new() -> Result<Self> {
+    pub fn get_base_dir() -> Result<PathBuf> {
         let mut path =
             dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
         path.push(".neflo");
+        if !path.exists() {
+            fs::create_dir_all(&path)?;
+        }
+        Ok(path)
+    }
+
+    pub fn new() -> Result<Self> {
+        let path = Self::get_base_dir()?;
         Ok(Self::from_path(path.join("db.json")))
     }
 
@@ -35,7 +43,9 @@ impl Storage {
 
     pub fn save(&self, db: &Database) -> Result<()> {
         let data = serde_json::to_string_pretty(db)?;
-        fs::write(&self.path, data)?;
+        let tmp_path = self.path.with_extension("tmp");
+        fs::write(&tmp_path, &data)?;
+        fs::rename(&tmp_path, &self.path)?;
         Ok(())
     }
 }

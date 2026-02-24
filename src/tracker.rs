@@ -16,14 +16,16 @@ impl Tracker {
     pub fn new(storage: Storage, threshold_mins: u64) -> Result<Self> {
         let db = storage.load()?;
         let now = Utc::now();
-        Ok(Self {
+        let mut tracker = Self {
             storage,
             threshold_secs: (threshold_mins * 60) as f64,
             db,
             last_kind_seen: None,
             state_start: now,
             last_save: now,
-        })
+        };
+        tracker.prune_old_data();
+        Ok(tracker)
     }
 
     pub fn tick(&mut self, idle_time: f64, now: chrono::DateTime<Utc>) -> Result<()> {
@@ -46,6 +48,7 @@ impl Tracker {
 
         // Save every 30 seconds
         if now - self.last_save > chrono::Duration::seconds(30) {
+            self.prune_old_data();
             self.storage.save(&self.db)?;
             self.last_save = now;
         }
@@ -57,6 +60,11 @@ impl Tracker {
         self.db.intervals.clear();
         self.storage.save(&self.db)?;
         Ok(())
+    }
+
+    pub fn prune_old_data(&mut self) {
+        let thirty_days_ago = Utc::now() - chrono::Duration::days(30);
+        self.db.intervals.retain(|i| i.end > thirty_days_ago);
     }
 
     pub fn update_db(
@@ -239,5 +247,33 @@ mod tests {
         assert_eq!(tracker.db.intervals.len(), 2);
         assert_eq!(tracker.db.intervals[0].start, t1);
         assert_eq!(tracker.db.intervals[1].start, t2);
+    }
+
+    #[test]
+    fn test_prune_old_data() {
+        let mut tracker = setup_tracker(PathBuf::from("dummy"));
+        tracker.db = Database::default();
+
+        let old_date = Utc::now() - chrono::Duration::days(31);
+        let recent_date = Utc::now() - chrono::Duration::days(29);
+
+        tracker
+            .db
+            .intervals
+            .push(Interval::new_at(IntervalType::Focus, old_date));
+        tracker.db.intervals[0].end = old_date + chrono::Duration::seconds(60);
+
+        tracker
+            .db
+            .intervals
+            .push(Interval::new_at(IntervalType::Focus, recent_date));
+        tracker.db.intervals[1].end = recent_date + chrono::Duration::seconds(60);
+
+        assert_eq!(tracker.db.intervals.len(), 2);
+
+        tracker.prune_old_data();
+
+        assert_eq!(tracker.db.intervals.len(), 1);
+        assert_eq!(tracker.db.intervals[0].start, recent_date);
     }
 }
