@@ -7,7 +7,7 @@ pub struct Config {
     pub default_threshold_mins: u64,
     pub start_time: Option<String>,
     pub end_time: Option<String>,
-    pub timeout: Option<String>,
+    pub duration: Option<String>,
 }
 
 impl Default for Config {
@@ -16,7 +16,7 @@ impl Default for Config {
             default_threshold_mins: 5,
             start_time: None,
             end_time: None,
-            timeout: None,
+            duration: None,
         }
     }
 }

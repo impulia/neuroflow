@@ -59,11 +59,11 @@ neflo start --threshold 10
 
 ### Session Limits
 
-You can set a start/end time or a timeout for your session:
+You can set a start/end time (in 24h format) or a duration for your session:
 
 ```bash
 # Start at 9:00 AM and stop after 8 hours
-neflo start --start-time 09:00 --timeout 8h
+neflo start -s 09:00 -d 8h
 ```
 
 To stop tracking manually, simply press `q` in the TUI or `Ctrl+C`.
@@ -91,7 +91,7 @@ Example `config.json`:
   "default_threshold_mins": 5,
   "start_time": "09:00",
   "end_time": "18:00",
-  "timeout": "8h"
+  "duration": "8h"
 }
 ```
 
