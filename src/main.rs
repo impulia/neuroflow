@@ -39,7 +39,7 @@ enum Commands {
         #[arg(long)]
         end_time: Option<String>,
         /// Timeout duration (e.g. 8h, 30m)
-        #[arg(short, long)]
+        #[arg(long)]
         timeout: Option<String>,
     },
     /// Generate a report of focus/idle time
