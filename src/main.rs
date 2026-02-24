@@ -79,7 +79,8 @@ fn main() -> Result<()> {
             let end_time = end_time.or(config.end_time);
             let timeout = timeout.or(config.timeout);
 
-            let mut tracker = Tracker::new(storage.clone(), threshold, start_time, end_time, timeout)?;
+            let mut tracker =
+                Tracker::new(storage.clone(), threshold, start_time, end_time, timeout)?;
 
             tui::run_tui(&mut tracker)?;
 
