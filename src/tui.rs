@@ -60,9 +60,15 @@ fn run_loop(
             }
         }
 
-        let idle_time = get_idle_time();
         let now = chrono::Utc::now();
-        tracker.tick(idle_time, now)?;
+        if tracker.should_stop(now) {
+            return Ok(());
+        }
+
+        if tracker.should_track(now) {
+            let idle_time = get_idle_time();
+            tracker.tick(idle_time, now)?;
+        }
     }
 }
 
@@ -84,8 +90,20 @@ pub fn draw(frame: &mut Frame, tracker: &Tracker) {
 }
 
 fn draw_header(frame: &mut Frame, area: Rect, tracker: &Tracker) {
-    let now = Local::now();
-    let status_text = if let Some(kind) = tracker.last_kind_seen {
+    let now_utc = chrono::Utc::now();
+    let now_local = Local::now();
+
+    let status_text = if !tracker.should_track(now_utc) {
+        Span::styled(
+            format!(
+                "WAITING (starts at {})",
+                tracker.start_time.unwrap().format("%H:%M")
+            ),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
+    } else if let Some(kind) = tracker.last_kind_seen {
         match kind {
             IntervalType::Focus => Span::styled(
                 "IN FLOW",
@@ -104,7 +122,7 @@ fn draw_header(frame: &mut Frame, area: Rect, tracker: &Tracker) {
         Span::raw("STARTING...")
     };
 
-    let header_content = Line::from(vec![
+    let mut header_spans = vec![
         Span::styled(
             " Neflo ",
             Style::default()
@@ -114,8 +132,28 @@ fn draw_header(frame: &mut Frame, area: Rect, tracker: &Tracker) {
         Span::raw(" | "),
         status_text,
         Span::raw(" | "),
-        Span::raw(now.format("%Y-%m-%d %H:%M:%S").to_string()),
-    ]);
+        Span::raw(now_local.format("%Y-%m-%d %H:%M:%S").to_string()),
+    ];
+
+    if let Some(timeout) = tracker.timeout {
+        let elapsed = now_utc - tracker.run_start_time;
+        let remaining = timeout - elapsed;
+        if remaining.num_seconds() > 0 {
+            header_spans.push(Span::raw(" | Timeout: "));
+            header_spans.push(Span::styled(
+                format_duration(remaining.num_seconds()),
+                Style::default().fg(Color::Magenta),
+            ));
+        }
+    } else if let Some(end_time) = tracker.end_time {
+        header_spans.push(Span::raw(" | End time: "));
+        header_spans.push(Span::styled(
+            end_time.format("%H:%M").to_string(),
+            Style::default().fg(Color::Magenta),
+        ));
+    }
+
+    let header_content = Line::from(header_spans);
 
     let header = Paragraph::new(header_content).block(Block::default().borders(Borders::ALL));
     frame.render_widget(header, area);

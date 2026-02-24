@@ -3,6 +3,7 @@ use anyhow::Result;
 use std::fs;
 use std::path::PathBuf;
 
+#[derive(Clone)]
 pub struct Storage {
     path: PathBuf,
 }

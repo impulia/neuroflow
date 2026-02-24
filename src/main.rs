@@ -32,6 +32,15 @@ enum Commands {
         /// Idle threshold in minutes
         #[arg(short, long)]
         threshold: Option<u64>,
+        /// Start time (HH:MM)
+        #[arg(long)]
+        start_time: Option<String>,
+        /// End time (HH:MM)
+        #[arg(long)]
+        end_time: Option<String>,
+        /// Timeout duration (e.g. 8h, 30m)
+        #[arg(short, long)]
+        timeout: Option<String>,
     },
     /// Generate a report of focus/idle time
     Report,
@@ -45,7 +54,12 @@ fn main() -> Result<()> {
     let storage = Storage::new()?;
 
     match cli.command {
-        Commands::Start { threshold } => {
+        Commands::Start {
+            threshold,
+            start_time,
+            end_time,
+            timeout,
+        } => {
             let base_dir = Storage::get_base_dir()?;
             let lock_path = base_dir.join("neflo.lock");
             let lock_file = OpenOptions::new()
@@ -61,12 +75,21 @@ fn main() -> Result<()> {
             })?;
 
             let threshold = threshold.unwrap_or(config.default_threshold_mins);
-            let mut tracker = Tracker::new(storage, threshold)?;
+            let start_time = start_time.or(config.start_time);
+            let end_time = end_time.or(config.end_time);
+            let timeout = timeout.or(config.timeout);
+
+            let mut tracker = Tracker::new(storage.clone(), threshold, start_time, end_time, timeout)?;
 
             tui::run_tui(&mut tracker)?;
 
             // Final save
             tracker.storage.save(&tracker.db)?;
+
+            // Report
+            println!("\nSession ended automatically or by user.");
+            let reporter = Reporter::new(storage);
+            reporter.report()?;
         }
         Commands::Report => {
             let reporter = Reporter::new(storage);
