@@ -1,21 +1,45 @@
 use crate::models::{Database, Interval, IntervalType};
 use crate::storage::Storage;
 use anyhow::Result;
-use chrono::Utc;
+use chrono::{DateTime, Local, NaiveTime, Utc};
 
 pub struct Tracker {
     pub storage: Storage,
     pub threshold_secs: f64,
     pub db: Database,
     pub last_kind_seen: Option<IntervalType>,
-    pub state_start: chrono::DateTime<Utc>,
-    pub last_save: chrono::DateTime<Utc>,
+    pub state_start: DateTime<Utc>,
+    pub last_save: DateTime<Utc>,
+    pub start_time: Option<NaiveTime>,
+    pub end_time: Option<NaiveTime>,
+    pub timeout: Option<chrono::Duration>,
+    pub run_start_time: DateTime<Utc>,
 }
 
 impl Tracker {
-    pub fn new(storage: Storage, threshold_mins: u64) -> Result<Self> {
+    pub fn new(
+        storage: Storage,
+        threshold_mins: u64,
+        start_time: Option<String>,
+        end_time: Option<String>,
+        timeout: Option<String>,
+    ) -> Result<Self> {
         let db = storage.load()?;
         let now = Utc::now();
+
+        let parsed_start_time = start_time
+            .map(|s| NaiveTime::parse_from_str(&s, "%H:%M"))
+            .transpose()?;
+        let parsed_end_time = end_time
+            .map(|s| NaiveTime::parse_from_str(&s, "%H:%M"))
+            .transpose()?;
+        let parsed_timeout = timeout
+            .map(|s| -> Result<chrono::Duration> {
+                let d = humantime::parse_duration(&s)?;
+                Ok(chrono::Duration::from_std(d)?)
+            })
+            .transpose()?;
+
         let mut tracker = Self {
             storage,
             threshold_secs: (threshold_mins * 60) as f64,
@@ -23,12 +47,41 @@ impl Tracker {
             last_kind_seen: None,
             state_start: now,
             last_save: now,
+            start_time: parsed_start_time,
+            end_time: parsed_end_time,
+            timeout: parsed_timeout,
+            run_start_time: now,
         };
         tracker.prune_old_data();
         Ok(tracker)
     }
 
-    pub fn tick(&mut self, idle_time: f64, now: chrono::DateTime<Utc>) -> Result<()> {
+    pub fn should_track(&self, now: DateTime<Utc>) -> bool {
+        if self.timeout.is_some() {
+            return true;
+        }
+        if let Some(st) = self.start_time {
+            if now.with_timezone(&Local).time() < st {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn should_stop(&self, now: DateTime<Utc>) -> bool {
+        if let Some(timeout) = self.timeout {
+            if now - self.run_start_time >= timeout {
+                return true;
+            }
+        } else if let Some(et) = self.end_time {
+            if now.with_timezone(&Local).time() >= et {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn tick(&mut self, idle_time: f64, now: DateTime<Utc>) -> Result<()> {
         let current_kind = if idle_time >= self.threshold_secs {
             IntervalType::Idle
         } else {
@@ -132,7 +185,7 @@ mod tests {
 
     fn setup_tracker(path: PathBuf) -> Tracker {
         let storage = Storage::from_path(path);
-        Tracker::new(storage, 5).unwrap() // 5 mins threshold
+        Tracker::new(storage, 5, None, None, None).unwrap() // 5 mins threshold
     }
 
     #[test]
@@ -275,5 +328,95 @@ mod tests {
 
         assert_eq!(tracker.db.intervals.len(), 1);
         assert_eq!(tracker.db.intervals[0].start, recent_date);
+    }
+
+    #[test]
+    fn test_should_track_start_time() {
+        let storage = Storage::from_path(PathBuf::from("dummy"));
+        let st = Some("09:00".to_string());
+        let tracker = Tracker::new(storage, 5, st, None, None).unwrap();
+
+        // 08:00 today
+        let t1 = Utc::now().with_timezone(&Local);
+        let t1 = t1
+            .date_naive()
+            .and_hms_opt(8, 0, 0)
+            .unwrap()
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
+        assert!(!tracker.should_track(t1));
+
+        // 10:00 today
+        let t2 = Utc::now().with_timezone(&Local);
+        let t2 = t2
+            .date_naive()
+            .and_hms_opt(10, 0, 0)
+            .unwrap()
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
+        assert!(tracker.should_track(t2));
+    }
+
+    #[test]
+    fn test_should_stop_end_time() {
+        let storage = Storage::from_path(PathBuf::from("dummy"));
+        let et = Some("17:00".to_string());
+        let tracker = Tracker::new(storage, 5, None, et, None).unwrap();
+
+        // 16:00 today
+        let t1 = Utc::now().with_timezone(&Local);
+        let t1 = t1
+            .date_naive()
+            .and_hms_opt(16, 0, 0)
+            .unwrap()
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
+        assert!(!tracker.should_stop(t1));
+
+        // 18:00 today
+        let t2 = Utc::now().with_timezone(&Local);
+        let t2 = t2
+            .date_naive()
+            .and_hms_opt(18, 0, 0)
+            .unwrap()
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
+        assert!(tracker.should_stop(t2));
+    }
+
+    #[test]
+    fn test_should_stop_timeout() {
+        let storage = Storage::from_path(PathBuf::from("dummy"));
+        let timeout = Some("1h".to_string());
+        let mut tracker = Tracker::new(storage, 5, None, None, timeout).unwrap();
+
+        let start = Utc::now();
+        tracker.run_start_time = start;
+
+        assert!(!tracker.should_stop(start + chrono::Duration::minutes(30)));
+        assert!(tracker.should_stop(start + chrono::Duration::minutes(90)));
+    }
+
+    #[test]
+    fn test_timeout_prevails_over_start_time() {
+        let storage = Storage::from_path(PathBuf::from("dummy"));
+        let st = Some("09:00".to_string());
+        let timeout = Some("1h".to_string());
+        let tracker = Tracker::new(storage, 5, st, None, timeout).unwrap();
+
+        // 08:00 today - should track because timeout is set
+        let t1 = Utc::now().with_timezone(&Local);
+        let t1 = t1
+            .date_naive()
+            .and_hms_opt(8, 0, 0)
+            .unwrap()
+            .and_local_timezone(Local)
+            .unwrap()
+            .with_timezone(&Utc);
+        assert!(tracker.should_track(t1));
     }
 }
