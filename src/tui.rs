@@ -62,10 +62,11 @@ fn run_loop(
 
         let now = chrono::Utc::now();
         if tracker.should_stop(now) {
-            return Ok(());
-        }
-
-        if tracker.should_track(now) {
+            if !tracker.session_ended_saved {
+                tracker.storage.save(&tracker.db)?;
+                tracker.session_ended_saved = true;
+            }
+        } else if tracker.should_track(now) {
             let idle_time = get_idle_time();
             tracker.tick(idle_time, now)?;
         }
@@ -93,7 +94,12 @@ fn draw_header(frame: &mut Frame, area: Rect, tracker: &Tracker) {
     let now_utc = chrono::Utc::now();
     let now_local = Local::now();
 
-    let status_text = if !tracker.should_track(now_utc) {
+    let status_text = if tracker.should_stop(now_utc) {
+        Span::styled(
+            "SESSION ENDED",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        )
+    } else if !tracker.should_track(now_utc) {
         Span::styled(
             format!(
                 "WAITING (starts at {})",

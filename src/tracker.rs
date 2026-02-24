@@ -14,6 +14,7 @@ pub struct Tracker {
     pub end_time: Option<NaiveTime>,
     pub timeout: Option<chrono::Duration>,
     pub run_start_time: DateTime<Utc>,
+    pub session_ended_saved: bool,
 }
 
 impl Tracker {
@@ -51,6 +52,7 @@ impl Tracker {
             end_time: parsed_end_time,
             timeout: parsed_timeout,
             run_start_time: now,
+            session_ended_saved: false,
         };
         tracker.prune_old_data();
         Ok(tracker)
