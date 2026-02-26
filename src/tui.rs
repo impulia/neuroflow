@@ -4,7 +4,7 @@ use crate::system::get_idle_time;
 use crate::tracker::Tracker;
 use crate::utils::format_duration;
 use anyhow::Result;
-use chrono::{Local, Duration, Utc};
+use chrono::{Duration, Local, Utc};
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -177,7 +177,13 @@ fn draw_stats(frame: &mut Frame, area: Rect, tracker: &Tracker) {
         ])
         .split(area);
 
-    draw_summary_block(frame, chunks[0], " SESSION ", &stats.session_summary, Some(tracker));
+    draw_summary_block(
+        frame,
+        chunks[0],
+        " SESSION ",
+        &stats.session_summary,
+        Some(tracker),
+    );
     draw_summary_block(frame, chunks[1], " TODAY ", &stats.today_summary, None);
     draw_summary_block(frame, chunks[2], " WEEK ", &stats.week_summary, None);
 }
@@ -230,34 +236,64 @@ fn draw_summary_block(
 
     lines.push(Line::from(vec![
         Span::styled("  Focus:", Style::default().fg(Color::Green)),
-        Span::raw(format!(" {} (Avg: {})",
+        Span::raw(format!(
+            " {} (Avg: {})",
             format_duration(summary.total_focus.num_seconds()),
             format_duration(avg_focus.num_seconds())
         )),
     ]));
-    lines.push(Line::raw(format!("    Max: {} | Min: {}",
-        format_duration(summary.max_focus.unwrap_or_else(Duration::zero).num_seconds()),
-        format_duration(summary.min_focus.unwrap_or_else(Duration::zero).num_seconds())
+    lines.push(Line::raw(format!(
+        "    Max: {} | Min: {}",
+        format_duration(
+            summary
+                .max_focus
+                .unwrap_or_else(Duration::zero)
+                .num_seconds()
+        ),
+        format_duration(
+            summary
+                .min_focus
+                .unwrap_or_else(Duration::zero)
+                .num_seconds()
+        )
     )));
 
     lines.push(Line::raw(""));
 
     lines.push(Line::from(vec![
         Span::styled("  Idle:  ", Style::default().fg(Color::Yellow)),
-        Span::raw(format!(" {} (Avg: {})",
+        Span::raw(format!(
+            " {} (Avg: {})",
             format_duration(summary.total_idle.num_seconds()),
             format_duration(avg_idle.num_seconds())
         )),
     ]));
-    lines.push(Line::raw(format!("    Max: {} | Min: {}",
-        format_duration(summary.max_idle.unwrap_or_else(Duration::zero).num_seconds()),
-        format_duration(summary.min_idle.unwrap_or_else(Duration::zero).num_seconds())
+    lines.push(Line::raw(format!(
+        "    Max: {} | Min: {}",
+        format_duration(
+            summary
+                .max_idle
+                .unwrap_or_else(Duration::zero)
+                .num_seconds()
+        ),
+        format_duration(
+            summary
+                .min_idle
+                .unwrap_or_else(Duration::zero)
+                .num_seconds()
+        )
     )));
 
-    lines.push(Line::raw(format!("  Interruptions: {}", summary.idle_count)));
+    lines.push(Line::raw(format!(
+        "  Interruptions: {}",
+        summary.idle_count
+    )));
 
     let block = Block::default()
-        .title(Span::styled(title, Style::default().add_modifier(Modifier::BOLD)))
+        .title(Span::styled(
+            title,
+            Style::default().add_modifier(Modifier::BOLD),
+        ))
         .borders(Borders::ALL);
     let para = Paragraph::new(lines).block(block);
     frame.render_widget(para, area);
