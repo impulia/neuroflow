@@ -314,11 +314,26 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
 
         let bar_label_split = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Min(0), Constraint::Length(1)])
+            .constraints([
+                Constraint::Length(1),
+                Constraint::Min(0),
+                Constraint::Length(1),
+            ])
             .split(col_area);
 
-        let bar_area = bar_label_split[0];
-        let label_area = bar_label_split[1];
+        let value_area = bar_label_split[0];
+        let bar_area = bar_label_split[1];
+        let label_area = bar_label_split[2];
+
+        // Draw Focus value
+        if focus > 0 {
+            frame.render_widget(
+                Paragraph::new(format_duration(focus))
+                    .style(Style::default().fg(Color::Green))
+                    .alignment(ratatui::layout::Alignment::Center),
+                value_area,
+            );
+        }
 
         // Center the bar horizontally within the column
         let bar_width = 5.min(bar_area.width);
