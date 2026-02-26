@@ -1,5 +1,5 @@
-use crate::models::{Database, IntervalType, Interval};
-use chrono::{Datelike, Duration, Local, NaiveDate, DateTime, Utc};
+use crate::models::{Database, Interval, IntervalType};
+use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, Utc};
 use std::collections::BTreeMap;
 
 #[derive(Default, Clone, Debug)]
@@ -178,7 +178,7 @@ mod tests {
                     end: base_time + Duration::minutes(30),
                     kind: IntervalType::Focus,
                 },
-            ]
+            ],
         };
 
         let stats = calculate_stats(&db, Some(run_start));
