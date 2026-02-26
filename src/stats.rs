@@ -1,4 +1,4 @@
-use crate::models::{Database, Interval, IntervalType};
+use crate::models::{Database, IntervalType};
 use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, Utc};
 use std::collections::BTreeMap;
 
@@ -16,10 +16,6 @@ pub struct SummaryStats {
     pub total_idle: Duration,
     pub focus_count: u32,
     pub idle_count: u32,
-    pub max_focus: Option<Duration>,
-    pub min_focus: Option<Duration>,
-    pub max_idle: Option<Duration>,
-    pub min_idle: Option<Duration>,
 }
 
 pub struct Stats {
@@ -29,34 +25,6 @@ pub struct Stats {
     pub week_summary: SummaryStats,
     pub today: NaiveDate,
     pub week_start: NaiveDate,
-}
-
-pub fn calculate_summary(intervals: &[Interval]) -> SummaryStats {
-    let mut summary = SummaryStats::default();
-
-    for interval in intervals {
-        let duration = interval.end - interval.start;
-        if duration < Duration::zero() {
-            continue;
-        }
-
-        match interval.kind {
-            IntervalType::Focus => {
-                summary.total_focus += duration;
-                summary.focus_count += 1;
-                summary.max_focus = Some(summary.max_focus.map_or(duration, |m| m.max(duration)));
-                summary.min_focus = Some(summary.min_focus.map_or(duration, |m| m.min(duration)));
-            }
-            IntervalType::Idle => {
-                summary.total_idle += duration;
-                summary.idle_count += 1;
-                summary.max_idle = Some(summary.max_idle.map_or(duration, |m| m.max(duration)));
-                summary.min_idle = Some(summary.min_idle.map_or(duration, |m| m.min(duration)));
-            }
-        }
-    }
-
-    summary
 }
 
 pub fn calculate_stats(db: &Database, run_start_time: Option<DateTime<Utc>>) -> Stats {
@@ -69,14 +37,17 @@ pub fn calculate_stats(db: &Database, run_start_time: Option<DateTime<Utc>>) -> 
     let week_end = week_start + Duration::days(6);
 
     let mut daily_stats: BTreeMap<NaiveDate, DayStats> = BTreeMap::new();
-    let mut session_intervals = Vec::new();
-    let mut today_intervals = Vec::new();
-    let mut week_intervals = Vec::new();
+    let mut session_summary = SummaryStats::default();
+    let mut today_summary = SummaryStats::default();
+    let mut week_summary = SummaryStats::default();
 
     for interval in &db.intervals {
         let start_local = interval.start.with_timezone(&Local);
         let date = start_local.date_naive();
         let duration = interval.end - interval.start;
+        if duration < Duration::zero() {
+            continue;
+        }
 
         let stats = daily_stats.entry(date).or_default();
         match interval.kind {
@@ -92,26 +63,39 @@ pub fn calculate_stats(db: &Database, run_start_time: Option<DateTime<Utc>>) -> 
 
         if let Some(run_start) = run_start_time {
             if interval.start >= run_start {
-                session_intervals.push(interval.clone());
+                update_summary(&mut session_summary, interval.kind, duration);
             }
         }
 
         if date == today {
-            today_intervals.push(interval.clone());
+            update_summary(&mut today_summary, interval.kind, duration);
         }
 
         if date >= week_start && date <= week_end {
-            week_intervals.push(interval.clone());
+            update_summary(&mut week_summary, interval.kind, duration);
         }
     }
 
     Stats {
         daily_stats,
-        session_summary: calculate_summary(&session_intervals),
-        today_summary: calculate_summary(&today_intervals),
-        week_summary: calculate_summary(&week_intervals),
+        session_summary,
+        today_summary,
+        week_summary,
         today,
         week_start,
+    }
+}
+
+fn update_summary(summary: &mut SummaryStats, kind: IntervalType, duration: Duration) {
+    match kind {
+        IntervalType::Focus => {
+            summary.total_focus += duration;
+            summary.focus_count += 1;
+        }
+        IntervalType::Idle => {
+            summary.total_idle += duration;
+            summary.idle_count += 1;
+        }
     }
 }
 
@@ -120,46 +104,6 @@ mod tests {
     use super::*;
     use crate::models::{Interval, IntervalType};
     use chrono::TimeZone;
-
-    #[test]
-    fn test_calculate_summary_empty() {
-        let summary = calculate_summary(&[]);
-        assert_eq!(summary.total_focus, Duration::zero());
-        assert_eq!(summary.total_idle, Duration::zero());
-        assert_eq!(summary.focus_count, 0);
-        assert_eq!(summary.idle_count, 0);
-        assert!(summary.max_focus.is_none());
-    }
-
-    #[test]
-    fn test_calculate_summary_mixed() {
-        let base_time = Utc.with_ymd_and_hms(2023, 1, 1, 10, 0, 0).unwrap();
-        let intervals = vec![
-            Interval {
-                start: base_time,
-                end: base_time + Duration::minutes(10),
-                kind: IntervalType::Focus,
-            },
-            Interval {
-                start: base_time + Duration::minutes(10),
-                end: base_time + Duration::minutes(15),
-                kind: IntervalType::Idle,
-            },
-            Interval {
-                start: base_time + Duration::minutes(15),
-                end: base_time + Duration::minutes(35),
-                kind: IntervalType::Focus,
-            },
-        ];
-
-        let summary = calculate_summary(&intervals);
-        assert_eq!(summary.total_focus, Duration::minutes(30));
-        assert_eq!(summary.total_idle, Duration::minutes(5));
-        assert_eq!(summary.focus_count, 2);
-        assert_eq!(summary.idle_count, 1);
-        assert_eq!(summary.max_focus, Some(Duration::minutes(20)));
-        assert_eq!(summary.min_focus, Some(Duration::minutes(10)));
-    }
 
     #[test]
     fn test_calculate_stats_filtering() {
@@ -186,5 +130,23 @@ mod tests {
         // Session should only have the second interval
         assert_eq!(stats.session_summary.focus_count, 1);
         assert_eq!(stats.session_summary.total_focus, Duration::minutes(10));
+    }
+
+    #[test]
+    fn test_ongoing_interval() {
+        let base_time = Utc.with_ymd_and_hms(2023, 1, 1, 10, 0, 0).unwrap();
+        let mut db = Database {
+            intervals: vec![Interval {
+                start: base_time,
+                end: base_time + Duration::seconds(1),
+                kind: IntervalType::Focus,
+            }],
+        };
+
+        // Simulating a tick updating the end time
+        db.intervals[0].end = base_time + Duration::seconds(10);
+
+        let stats = calculate_stats(&db, Some(base_time));
+        assert_eq!(stats.session_summary.total_focus, Duration::seconds(10));
     }
 }
