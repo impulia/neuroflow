@@ -78,7 +78,7 @@ pub fn draw(frame: &mut Frame, tracker: &Tracker) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),  // Header
-            Constraint::Length(12), // Stats
+            Constraint::Length(10), // Stats
             Constraint::Min(0),     // Chart
             Constraint::Length(3),  // Footer
         ])
@@ -242,23 +242,6 @@ fn draw_summary_block(
             format_duration(avg_focus.num_seconds())
         )),
     ]));
-    lines.push(Line::raw(format!(
-        "    Max: {} | Min: {}",
-        format_duration(
-            summary
-                .max_focus
-                .unwrap_or_else(Duration::zero)
-                .num_seconds()
-        ),
-        format_duration(
-            summary
-                .min_focus
-                .unwrap_or_else(Duration::zero)
-                .num_seconds()
-        )
-    )));
-
-    lines.push(Line::raw(""));
 
     lines.push(Line::from(vec![
         Span::styled("  Idle:  ", Style::default().fg(Color::Yellow)),
@@ -268,21 +251,6 @@ fn draw_summary_block(
             format_duration(avg_idle.num_seconds())
         )),
     ]));
-    lines.push(Line::raw(format!(
-        "    Max: {} | Min: {}",
-        format_duration(
-            summary
-                .max_idle
-                .unwrap_or_else(Duration::zero)
-                .num_seconds()
-        ),
-        format_duration(
-            summary
-                .min_idle
-                .unwrap_or_else(Duration::zero)
-                .num_seconds()
-        )
-    )));
 
     lines.push(Line::raw(format!(
         "  Interruptions: {}",
