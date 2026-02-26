@@ -20,7 +20,7 @@ impl Reporter {
             return Ok(());
         }
 
-        let stats_data = calculate_stats(&db);
+        let stats_data = calculate_stats(&db, None);
 
         println!("Neflo Report");
         println!("============");
