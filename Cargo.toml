@@ -2,6 +2,9 @@
 name = "neflo"
 version = "0.2.0"
 edition = "2021"
+repository = "https://github.com/impulia/neuroflow"
+description = "A CLI tool to track focus and idle time on macOS"
+license = "MIT"
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
@@ -23,3 +26,22 @@ core-graphics = "0.25"
 
 [dev-dependencies]
 tempfile = "3.10"
+
+# Config for 'cargo dist'
+[package.metadata.dist]
+# The preferred cargo-dist version to use in CI (output of cargo dist --version)
+cargo-dist-version = "0.21.1"
+# CI backends to support
+ci = "github"
+# The installers to generate for each app
+installers = ["shell"]
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+# Path that installers should output accomplishments to
+install-path = "CARGO_HOME"
+# Whether to publish prereleases to GitHub Releases
+prerelease-to-github = true
+# Publish jobs to run
+publish-jobs = []
+# Whether to create a GitHub Release from this tag
+create-release = true
