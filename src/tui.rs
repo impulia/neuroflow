@@ -306,9 +306,9 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
             let mut segment_heights = Vec::new();
             let mut total_drawn_height = 0;
 
-            for (kind, duration) in &day_stats.segments {
+            for (kind, duration, start_time) in &day_stats.segments {
                 let h = (duration.num_seconds() * total_height_cells / max_total_secs) as u16;
-                segment_heights.push((*kind, h));
+                segment_heights.push((*kind, h, *start_time));
                 total_drawn_height += h;
             }
 
@@ -317,7 +317,7 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
 
             // Create constraints: top is empty, then segments from latest to earliest (to draw bottom-up)
             let mut constraints = vec![Constraint::Length(remaining_height)];
-            for (_, h) in segment_heights.iter().rev() {
+            for (_, h, _) in segment_heights.iter().rev() {
                 constraints.push(Constraint::Length(*h));
             }
 
@@ -327,13 +327,25 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
                 .split(centered_bar_area);
 
             // Render segments
-            for (idx, (kind, h)) in segment_heights.iter().rev().enumerate() {
+            for (idx, (kind, h, start_time)) in segment_heights.iter().rev().enumerate() {
                 if *h > 0 {
                     let color = match kind {
                         IntervalType::Focus => Color::Green,
                         IntervalType::Idle => Color::Yellow,
                     };
-                    frame.render_widget(Block::default().bg(color), bar_chunks[idx + 1]);
+                    let area = bar_chunks[idx + 1];
+                    frame.render_widget(Block::default().bg(color), area);
+
+                    if area.width >= 5 && area.height >= 1 {
+                        let time_str = start_time.format("%H:%M").to_string();
+                        let time_para = Paragraph::new(time_str)
+                            .style(Style::default().fg(Color::Black))
+                            .alignment(ratatui::layout::Alignment::Center);
+
+                        // Position time at the bottom of the segment
+                        let time_area = Rect::new(area.x, area.y + area.height - 1, area.width, 1);
+                        frame.render_widget(time_para, time_area);
+                    }
                 }
             }
         }

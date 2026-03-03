@@ -1,5 +1,5 @@
 use crate::models::{Database, IntervalType};
-use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, NaiveTime, Utc};
 use std::collections::BTreeMap;
 
 #[derive(Default, Clone, Debug)]
@@ -8,7 +8,7 @@ pub struct DayStats {
     pub total_idle: Duration,
     pub focus_sessions: u32,
     pub idle_sessions: u32,
-    pub segments: Vec<(crate::models::IntervalType, Duration)>,
+    pub segments: Vec<(IntervalType, Duration, NaiveTime)>,
 }
 
 #[derive(Default, Clone, Debug)]
@@ -51,7 +51,7 @@ pub fn calculate_stats(db: &Database, run_start_time: Option<DateTime<Utc>>) -> 
         }
 
         let stats = daily_stats.entry(date).or_default();
-        stats.segments.push((interval.kind, duration));
+        stats.segments.push((interval.kind, duration, start_local.time()));
         match interval.kind {
             IntervalType::Focus => {
                 stats.total_focus += duration;
