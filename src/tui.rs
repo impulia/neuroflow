@@ -77,10 +77,10 @@ pub fn draw(frame: &mut Frame, tracker: &Tracker) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // Header
-            Constraint::Length(10), // Stats
-            Constraint::Min(0),     // Chart
-            Constraint::Length(3),  // Footer
+            Constraint::Length(3), // Header
+            Constraint::Length(9), // Stats
+            Constraint::Min(0),    // Chart
+            Constraint::Length(3), // Footer
         ])
         .split(frame.size());
 
@@ -177,51 +177,13 @@ fn draw_stats(frame: &mut Frame, area: Rect, tracker: &Tracker) {
         ])
         .split(area);
 
-    draw_summary_block(
-        frame,
-        chunks[0],
-        " SESSION ",
-        &stats.session_summary,
-        Some(tracker),
-    );
-    draw_summary_block(frame, chunks[1], " TODAY ", &stats.today_summary, None);
-    draw_summary_block(frame, chunks[2], " WEEK ", &stats.week_summary, None);
+    draw_summary_block(frame, chunks[0], " SESSION ", &stats.session_summary);
+    draw_summary_block(frame, chunks[1], " TODAY ", &stats.today_summary);
+    draw_summary_block(frame, chunks[2], " WEEK ", &stats.week_summary);
 }
 
-fn draw_summary_block(
-    frame: &mut Frame,
-    area: Rect,
-    title: &str,
-    summary: &SummaryStats,
-    tracker: Option<&Tracker>,
-) {
+fn draw_summary_block(frame: &mut Frame, area: Rect, title: &str, summary: &SummaryStats) {
     let mut lines = Vec::new();
-
-    // Current interval line for Session
-    if let Some(t) = tracker {
-        if let Some(kind) = t.last_kind_seen {
-            let session_duration = Utc::now() - t.state_start;
-            let label = match kind {
-                IntervalType::Focus => "Current: Focus",
-                IntervalType::Idle => "Current: Idle",
-            };
-            let color = match kind {
-                IntervalType::Focus => Color::Green,
-                IntervalType::Idle => Color::Yellow,
-            };
-            lines.push(Line::from(vec![
-                Span::raw(format!("  {}: ", label)),
-                Span::styled(
-                    format_duration(session_duration.num_seconds()),
-                    Style::default().fg(color).add_modifier(Modifier::BOLD),
-                ),
-            ]));
-        } else {
-            lines.push(Line::raw("  Current: ---"));
-        }
-    } else {
-        lines.push(Line::raw(""));
-    }
 
     let avg_focus = if summary.focus_count > 0 {
         summary.total_focus / (summary.focus_count as i32)
