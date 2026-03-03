@@ -27,8 +27,11 @@ core-graphics = "0.25"
 [dev-dependencies]
 tempfile = "3.10"
 
+[workspace]
+members = ["."]
+
 # Config for 'cargo dist'
-[package.metadata.dist]
+[workspace.metadata.dist]
 # The preferred cargo-dist version to use in CI (output of cargo dist --version)
 cargo-dist-version = "0.21.1"
 # CI backends to support
@@ -38,10 +41,12 @@ installers = ["shell"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
 # Path that installers should output accomplishments to
-install-path = "HOME"
+install-path = "CARGO_HOME"
 # Whether to publish prereleases to GitHub Releases
 prerelease-to-github = true
 # Publish jobs to run
 publish-jobs = []
 # Whether to create a GitHub Release from this tag
 create-release = true
+# Allow dirty (out of date) CI scripts
+allow-dirty = ["ci"]
