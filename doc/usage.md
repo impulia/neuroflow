@@ -58,7 +58,7 @@ When you run `neflo start`, a Terminal User Interface (TUI) opens.
 - **Header**: Shows the current status (IN FLOW or IDLE) and the current time.
 - **Totals**: Displays today's total focus time, idle time, and the number of interruptions.
 - **Averages**: Shows average focus and idle session lengths for the day.
-- **Activity Chart**: A weekly bar chart (Monday to Sunday) showing focus (green) and idle (yellow) time.
+- **Activity Chart**: A weekly bar chart (Monday to Sunday) showing focus (green) and idle (yellow) time. The bars are rendered as chronological timelines, with the earliest activity of the day at the bottom, allowing you to see exactly when interruptions occurred.
 - **Footer**: Displays available keyboard shortcuts.
 
 ### Shortcuts
