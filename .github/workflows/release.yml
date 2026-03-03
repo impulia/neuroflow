@@ -1,73 +1,75 @@
+# CI should only run on tags and pull requests for tags
 name: Release
-
-env:
-  PACKAGE_NAME: neflo
-
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'src/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
-  release:
-    name: Release
+  # The announce job is used to plan the release and share that plan with other jobs.
+  # It also handles creating the GitHub Release.
+  announce:
     runs-on: ubuntu-latest
     outputs:
-      releases: ${{ steps.release-plz.outputs.releases }}
+      manifest: ${{ steps.plan.outputs.manifest }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - name: Run release-plz
-        id: release-plz
-        uses: MarcoIeni/release-plz-action@v0.5
-        with:
-          command: release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          submodules: recursive
+      - name: Install cargo-dist
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.21.1/cargo-dist-installer.sh | sh
+      - id: plan
+        run: |
+          cargo dist plan --output-format=json > plan.json
+          echo "manifest=$(cat plan.json | jq -c .)" >> $GITHUB_OUTPUT
 
-  upload-assets:
-    name: Upload Assets
-    needs: release
-    if: needs.release.outputs.releases != '' && needs.release.outputs.releases != '[]' && needs.release.outputs.releases != 'null'
+  # The build job handles building the application for all requested targets.
+  build:
+    needs: announce
+    strategy:
+      matrix:
+        # cargo-dist-version: 0.21.1
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
     runs-on: macos-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ fromJSON(needs.release.outputs.releases)[0].tag }}
+          submodules: recursive
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin, x86_64-apple-darwin
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
-      - name: Build release binaries
-        run: |
-          cargo build --release --target aarch64-apple-darwin
-          cargo build --release --target x86_64-apple-darwin
-      - name: Create universal binary
-        run: |
-          lipo -create \
-            target/aarch64-apple-darwin/release/${{ env.PACKAGE_NAME }} \
-            target/x86_64-apple-darwin/release/${{ env.PACKAGE_NAME }} \
-            -output ${{ env.PACKAGE_NAME }}
-          tar -czf ${{ env.PACKAGE_NAME }}-macos.tar.gz ${{ env.PACKAGE_NAME }}
-      - name: Upload release asset
-        uses: softprops/action-gh-release@v2
+          targets: ${{ matrix.target }}
+      - name: Install cargo-dist
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.21.1/cargo-dist-installer.sh | sh
+      - name: Build
+        run: cargo dist build --target=${{ matrix.target }} --output-format=json > dist-manifest.json
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: ${{ env.PACKAGE_NAME }}-macos.tar.gz
-          tag_name: ${{ fromJSON(needs.release.outputs.releases)[0].tag }}
+          name: artifacts-${{ matrix.target }}
+          path: |
+            target/dist/*
+            dist-manifest.json
+
+  # The publish job handles final processing and uploading the built artifacts to the GitHub Release.
+  publish:
+    needs: [announce, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cargo-dist
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.21.1/cargo-dist-installer.sh | sh
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: artifacts-*
+          path: target/artifacts
+          merge-multiple: true
+      - name: Publish
+        run: cargo dist publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
