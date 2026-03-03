@@ -276,11 +276,26 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
 
         let bar_label_split = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Min(0), Constraint::Length(1)])
+            .constraints([
+                Constraint::Length(1), // Total Focus duration
+                Constraint::Min(0),    // Bar
+                Constraint::Length(1), // Day label
+            ])
             .split(col_area);
 
-        let bar_area = bar_label_split[0];
-        let label_area = bar_label_split[1];
+        let focus_label_area = bar_label_split[0];
+        let bar_area = bar_label_split[1];
+        let label_area = bar_label_split[2];
+
+        // Draw total focus duration at the top
+        if day_stats.total_focus.num_seconds() > 0 {
+            frame.render_widget(
+                Paragraph::new(format_duration(day_stats.total_focus.num_seconds()))
+                    .style(Style::default().fg(Color::Green))
+                    .alignment(ratatui::layout::Alignment::Center),
+                focus_label_area,
+            );
+        }
 
         // Center the bar horizontally within the column
         let bar_width = 5.min(bar_area.width);
