@@ -8,6 +8,7 @@ pub struct DayStats {
     pub total_idle: Duration,
     pub focus_sessions: u32,
     pub idle_sessions: u32,
+    pub segments: Vec<(crate::models::IntervalType, Duration)>,
 }
 
 #[derive(Default, Clone, Debug)]
@@ -50,6 +51,7 @@ pub fn calculate_stats(db: &Database, run_start_time: Option<DateTime<Utc>>) -> 
         }
 
         let stats = daily_stats.entry(date).or_default();
+        stats.segments.push((interval.kind, duration));
         match interval.kind {
             IntervalType::Focus => {
                 stats.total_focus += duration;

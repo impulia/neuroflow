@@ -242,20 +242,16 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
         return;
     }
 
-    // Get current week (Monday to Sunday)
-    let mut days_data = Vec::new();
+    // Get current week (Monday to Sunday) and find max total seconds for scaling
     let mut max_total_secs = 1;
 
     for i in 0..7 {
         let date = stats.week_start + Duration::days(i);
         let day_stats = stats.daily_stats.get(&date).cloned().unwrap_or_default();
-        let focus_secs = day_stats.total_focus.num_seconds();
-        let idle_secs = day_stats.total_idle.num_seconds();
-        let total_secs = focus_secs + idle_secs;
+        let total_secs = day_stats.total_focus.num_seconds() + day_stats.total_idle.num_seconds();
         if total_secs > max_total_secs {
             max_total_secs = total_secs;
         }
-        days_data.push((date.format("%a").to_string(), focus_secs, idle_secs));
     }
 
     let columns = Layout::default()
@@ -271,7 +267,11 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
         ])
         .split(inner_area);
 
-    for (i, (label, focus, idle)) in days_data.into_iter().enumerate() {
+    for i in 0..7 {
+        let date = stats.week_start + chrono::Duration::days(i as i64);
+        let day_stats = stats.daily_stats.get(&date).cloned().unwrap_or_default();
+        let label = date.format("%a").to_string();
+
         let col_area = columns[i];
 
         let bar_label_split = Layout::default()
@@ -315,28 +315,41 @@ fn draw_chart(frame: &mut Frame, area: Rect, tracker: &Tracker) {
 
         // Draw bar
         if centered_bar_area.height > 0 {
-            let total_height = centered_bar_area.height as i64;
-            let focus_height = (focus * total_height / max_total_secs) as u16;
-            let idle_height = (idle * total_height / max_total_secs) as u16;
+            let total_height_cells = centered_bar_area.height as i64;
 
-            let remaining_height = centered_bar_area
-                .height
-                .saturating_sub(focus_height + idle_height);
+            // Calculate heights for all segments in cells
+            let mut segment_heights = Vec::new();
+            let mut total_drawn_height = 0;
+
+            for (kind, duration) in &day_stats.segments {
+                let h = (duration.num_seconds() * total_height_cells / max_total_secs) as u16;
+                segment_heights.push((*kind, h));
+                total_drawn_height += h;
+            }
+
+            // Distribute remaining height (empty space at the top)
+            let remaining_height = (centered_bar_area.height).saturating_sub(total_drawn_height);
+
+            // Create constraints: top is empty, then segments from latest to earliest (to draw bottom-up)
+            let mut constraints = vec![Constraint::Length(remaining_height)];
+            for (_, h) in segment_heights.iter().rev() {
+                constraints.push(Constraint::Length(*h));
+            }
 
             let bar_chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(remaining_height),
-                    Constraint::Length(idle_height),
-                    Constraint::Length(focus_height),
-                ])
+                .constraints(constraints)
                 .split(centered_bar_area);
 
-            if idle_height > 0 {
-                frame.render_widget(Block::default().bg(Color::Yellow), bar_chunks[1]);
-            }
-            if focus_height > 0 {
-                frame.render_widget(Block::default().bg(Color::Green), bar_chunks[2]);
+            // Render segments
+            for (idx, (kind, h)) in segment_heights.iter().rev().enumerate() {
+                if *h > 0 {
+                    let color = match kind {
+                        IntervalType::Focus => Color::Green,
+                        IntervalType::Idle => Color::Yellow,
+                    };
+                    frame.render_widget(Block::default().bg(color), bar_chunks[idx + 1]);
+                }
             }
         }
     }
