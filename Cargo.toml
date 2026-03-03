@@ -27,8 +27,11 @@ core-graphics = "0.25"
 [dev-dependencies]
 tempfile = "3.10"
 
+[workspace]
+members = ["."]
+
 # Config for 'cargo dist'
-[package.metadata.dist]
+[workspace.metadata.dist]
 # The preferred cargo-dist version to use in CI (output of cargo dist --version)
 cargo-dist-version = "0.21.1"
 # CI backends to support
@@ -45,3 +48,5 @@ prerelease-to-github = true
 publish-jobs = []
 # Whether to create a GitHub Release from this tag
 create-release = true
+# Allow dirty (out of date) CI scripts
+allow-dirty = ["ci"]
