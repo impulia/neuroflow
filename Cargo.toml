@@ -38,7 +38,7 @@ installers = ["shell"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
 # Path that installers should output accomplishments to
-install-path = "HOME"
+install-path = "CARGO_HOME"
 # Whether to publish prereleases to GitHub Releases
 prerelease-to-github = true
 # Publish jobs to run
