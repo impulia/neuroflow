@@ -1,0 +1,9 @@
+[workspace]
+# Do not publish to crates.io (macOS-only binary)
+publish = false
+# Create git tags on release (triggers the Release workflow)
+git_tag_enable = true
+# Let the Release workflow handle GitHub release creation with binary assets
+git_release_enable = false
+# Update CHANGELOG.md automatically
+changelog_update = true
