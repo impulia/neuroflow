@@ -12,7 +12,6 @@ pub fn update() -> Result<()> {
         .show_download_progress(true)
         .current_version(cargo_crate_version!())
         .no_confirm(true)
-        .target("macos")
         .build()?
         .update()?;
 

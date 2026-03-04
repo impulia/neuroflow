@@ -37,7 +37,7 @@ cargo-dist-version = "0.21.1"
 # CI backends to support
 ci = "github"
 # The installers to generate for each app
-installers = ["shell"]
+installers = ["shell", "homebrew"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
 # Path that installers should output accomplishments to
@@ -45,8 +45,12 @@ install-path = "CARGO_HOME"
 # Whether to publish prereleases to GitHub Releases
 prerelease-to-github = true
 # Publish jobs to run
-publish-jobs = []
+publish-jobs = ["homebrew"]
 # Whether to create a GitHub Release from this tag
 create-release = true
 # Allow dirty (out of date) CI scripts
 allow-dirty = ["ci"]
+# Use .tar.gz for compatibility with self_update crate
+unix-archive = ".tar.gz"
+# Homebrew tap repository for formula publishing
+tap = "impulia/homebrew-tap"
