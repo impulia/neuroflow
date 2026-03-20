@@ -1,0 +1,39 @@
+{
+  "productName": "Neflo",
+  "version": "0.3.0",
+  "identifier": "com.impulia.neflo",
+  "build": {
+    "beforeDevCommand": {
+      "script": "npm run dev",
+      "cwd": "../ui"
+    },
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": {
+      "script": "npm run build",
+      "cwd": "../ui"
+    },
+    "frontendDist": "../ui/dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    },
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "frameworks": [],
+      "signingIdentity": null,
+      "infoPlist": {
+        "LSUIElement": true
+      }
+    }
+  },
+  "plugins": {
+    "positioner": {}
+  }
+}
