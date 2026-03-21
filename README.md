@@ -32,7 +32,10 @@ Comprehensive documentation is available in the [doc/](doc/index.md) folder:
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Install the Tauri CLI (one-time setup)
+cargo install tauri-cli
+
+# Install frontend dependencies
 cd ui && npm install && cd ..
 
 # Run in development mode (launches Tauri dev server)

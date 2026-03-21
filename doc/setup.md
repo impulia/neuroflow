@@ -8,6 +8,7 @@ This guide will help you get Neflo up and running on your macOS system.
 - **Architecture**: Intel or Apple Silicon (M1/M2/M3/M4).
 - **Rust**: Version 1.85 or later.
 - **Node.js**: Version 18 or later (for the Svelte frontend).
+- **Tauri CLI**: Install with `cargo install tauri-cli`.
 
 ## Installation
 
@@ -27,12 +28,17 @@ Neflo provides pre-built macOS binaries for both Intel and Apple Silicon.
    cd neuroflow
    ```
 
-2. **Install frontend dependencies**:
+2. **Install the Tauri CLI** (if not already installed):
+   ```bash
+   cargo install tauri-cli
+   ```
+
+3. **Install frontend dependencies**:
    ```bash
    cd ui && npm install && cd ..
    ```
 
-3. **Build the Tauri app**:
+4. **Build the Tauri app**:
    ```bash
    cargo tauri build
    ```
