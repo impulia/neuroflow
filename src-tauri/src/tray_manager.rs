@@ -18,9 +18,7 @@ pub fn setup_tray(app: &App) -> Result<()> {
         .id("reset_today")
         .build(app)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
-    let quit_item = MenuItemBuilder::new("Quit Neflo")
-        .id("quit")
-        .build(app)?;
+    let quit_item = MenuItemBuilder::new("Quit Neflo").id("quit").build(app)?;
 
     let menu = MenuBuilder::new(app)
         .item(&pause_item)

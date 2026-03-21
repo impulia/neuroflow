@@ -47,8 +47,12 @@ pub fn run() {
 
     let config = load_config().unwrap_or_default();
     let storage = Storage::new().expect("Could not create storage");
-    let tracker = Tracker::new(storage, config.default_threshold_mins, config.duration.clone())
-        .expect("Could not create tracker");
+    let tracker = Tracker::new(
+        storage,
+        config.default_threshold_mins,
+        config.duration.clone(),
+    )
+    .expect("Could not create tracker");
 
     let tracker_state: Arc<Mutex<Tracker>> = Arc::new(Mutex::new(tracker));
     let config_state: Arc<Mutex<config::Config>> = Arc::new(Mutex::new(config));
@@ -72,19 +76,16 @@ pub fn run() {
         ])
         .setup(move |app| {
             // Create the main hidden webview window.
-            let window = tauri::WebviewWindowBuilder::new(
-                app,
-                "main",
-                tauri::WebviewUrl::App("/".into()),
-            )
-            .title("Neflo")
-            .inner_size(340.0, 480.0)
-            .decorations(false)
-            .visible(false)
-            .transparent(true)
-            .resizable(false)
-            .skip_taskbar(true)
-            .build()?;
+            let window =
+                tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
+                    .title("Neflo")
+                    .inner_size(340.0, 480.0)
+                    .decorations(false)
+                    .visible(false)
+                    .transparent(true)
+                    .resizable(false)
+                    .skip_taskbar(true)
+                    .build()?;
 
             // Position near the tray on first show.
             use tauri_plugin_positioner::{Position, WindowExt};

@@ -17,11 +17,7 @@ pub struct Tracker {
 }
 
 impl Tracker {
-    pub fn new(
-        storage: Storage,
-        threshold_mins: u64,
-        duration: Option<String>,
-    ) -> Result<Self> {
+    pub fn new(storage: Storage, threshold_mins: u64, duration: Option<String>) -> Result<Self> {
         let db = storage.load()?;
         let now = Utc::now();
 

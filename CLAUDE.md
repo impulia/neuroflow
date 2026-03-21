@@ -9,8 +9,8 @@ Neflo is a **macOS menu bar app** that tracks focus/idle time. It consists of:
 - **Rust backend** (Tauri 2) in `src-tauri/`
 - **Svelte 5 frontend** in `ui/`
 
-> **The root `Cargo.toml` is a legacy CLI artifact. Ignore it.**
-> All Rust work happens inside `src-tauri/`.
+> The root `Cargo.toml` is a **virtual workspace** that includes `src-tauri/`
+> as its sole member. Cargo commands work from either the repo root or `src-tauri/`.
 
 ## Mandatory Reading
 
@@ -54,25 +54,22 @@ ui/
 ## Working Directory Rules
 
 ```bash
-# Rust commands — ALWAYS from src-tauri/
-cd src-tauri && cargo test
-cd src-tauri && cargo clippy -- -D warnings
-cd src-tauri && cargo fmt --all -- --check
+# Rust commands — run from repo root (workspace) or src-tauri/
+cargo test
+cargo clippy -- -D warnings
+cargo fmt --all -- --check
 
 # Frontend commands — ALWAYS from ui/
 cd ui && npm run build
-
-# Do NOT run cargo commands from the repo root.
-# The root Cargo.toml is a legacy CLI crate and will test/build the wrong thing.
 ```
 
 ## Pre-Push Verification (exact commands)
 
 ```bash
 # Run ALL of these before committing:
-cd src-tauri && cargo fmt --all -- --check && cd ..
-cd src-tauri && cargo clippy -- -D warnings && cd ..
-cd src-tauri && cargo test && cd ..
+cargo fmt --all -- --check
+cargo clippy -- -D warnings
+cargo test
 cd ui && npm run build && cd ..
 ```
 
@@ -147,7 +144,7 @@ The tray fallbacks exist so menu actions work even when the webview is not loade
 
 | Anti-Pattern | Why |
 |-------------|-----|
-| Run `cargo test` from repo root | Tests the legacy CLI crate, not the Tauri app |
+| Run cargo commands outside the workspace | The workspace root or `src-tauri/` are the only valid locations |
 | Add frontend polling (`setInterval` + `invoke`) | Architecture is push-based via events (EV-6) |
 | Update stores directly in action functions | Stores are updated only via the event listener (FS-4) |
 | Use inline colors or magic numbers in CSS | Use CSS custom properties from `styles.css` |

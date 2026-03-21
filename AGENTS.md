@@ -42,7 +42,7 @@ This document outlines the engineering principles and architectural patterns fol
 - System-level idle detection is implemented in `src-tauri/src/system.rs` using the `CoreGraphics` framework via FFI. Avoid adding non-macOS dependencies unless properly gated with `#[cfg(target_os = "macos")]`.
 
 ### Working Directory
-- **The root `Cargo.toml` is a legacy CLI artifact.** All Rust commands (`cargo test`, `cargo clippy`, `cargo fmt`) must be run from `src-tauri/`, not from the repo root.
+- The root `Cargo.toml` is a **virtual workspace** containing `src-tauri/` as its sole member. Cargo commands (`cargo test`, `cargo clippy`, `cargo fmt`) work from the repo root or from `src-tauri/`.
 
 ## 4. Frontend Patterns
 
@@ -72,17 +72,14 @@ This document outlines the engineering principles and architectural patterns fol
 Every change must pass the following checks before being committed/pushed:
 
 ```bash
-# IMPORTANT: The root Cargo.toml is a legacy CLI crate.
-# All Rust commands MUST run from src-tauri/.
-
 # 1. Code is formatted
-cd src-tauri && cargo fmt --all -- --check && cd ..
+cargo fmt --all -- --check
 
 # 2. No clippy warnings
-cd src-tauri && cargo clippy -- -D warnings && cd ..
+cargo clippy -- -D warnings
 
 # 3. All Rust unit tests pass
-cd src-tauri && cargo test && cd ..
+cargo test
 
 # 4. Frontend builds without errors
 cd ui && npm run build && cd ..

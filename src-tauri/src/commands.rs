@@ -179,9 +179,7 @@ pub fn emit_update(app: &tauri::AppHandle, tracker: &Tracker, cfg: &Config) {
 // ---------------------------------------------------------------------------
 
 #[tauri::command]
-pub fn get_current_state(
-    tracker: State<'_, Arc<Mutex<Tracker>>>,
-) -> Result<CurrentState, String> {
+pub fn get_current_state(tracker: State<'_, Arc<Mutex<Tracker>>>) -> Result<CurrentState, String> {
     let guard = tracker.lock().map_err(|e| e.to_string())?;
     Ok(build_current_state(&guard))
 }
@@ -205,9 +203,7 @@ pub fn get_weekly_chart_data(
 }
 
 #[tauri::command]
-pub fn get_config(
-    config: State<'_, Arc<Mutex<Config>>>,
-) -> Result<ConfigResponse, String> {
+pub fn get_config(config: State<'_, Arc<Mutex<Config>>>) -> Result<ConfigResponse, String> {
     let cfg = config.lock().map_err(|e| e.to_string())?;
     Ok(build_config_response(&cfg))
 }
@@ -278,10 +274,7 @@ pub fn reset_today(
         date != today
     });
 
-    guard
-        .storage
-        .save(&guard.db)
-        .map_err(|e| e.to_string())?;
+    guard.storage.save(&guard.db).map_err(|e| e.to_string())?;
 
     let cfg = config.lock().map_err(|e| e.to_string())?;
     emit_update(&app, &guard, &cfg);
