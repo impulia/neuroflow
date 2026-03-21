@@ -52,11 +52,43 @@ This document outlines the engineering principles and architectural patterns fol
 - **Format**: All persisted data is in human-readable JSON format.
 - **Single Instance**: An advisory file lock (`neflo.lock`) prevents multiple instances.
 
-## 6. Testing and Verification
+## 6. Testing, Verification, and Invariant Enforcement
 
-- **Unit Testing**: Core logic (state machine, statistics engine) must be covered by unit tests.
-- **Hermetic Tests**: Use the `tempfile` crate to ensure that tests do not modify the user's actual database or configuration files.
-- **Determinism**: When testing time-dependent logic, allow for explicit timestamps to be passed to functions (see `Tracker::update_db`).
+### Invariants File
+- **[INVARIANTS.md](INVARIANTS.md)** contains every active acceptance criterion for the project. It is the single source of truth for what the system guarantees.
+- **Before every push**, agents **must** verify that no invariants have been broken by their changes. This is non-negotiable.
+
+### Mandatory Pre-Push Verification
+
+Every change must pass the following checks before being committed/pushed:
+
+```bash
+# 1. All Rust unit tests pass
+cargo test
+
+# 2. No clippy warnings
+cargo clippy -- -D warnings
+
+# 3. Code is formatted
+cargo fmt --all -- --check
+
+# 4. Frontend builds without errors
+cd ui && npm run build && cd ..
+```
+
+### Invariant Review Process
+
+After passing automated checks, agents must:
+
+1. **Identify affected invariants**: Determine which invariant IDs from `INVARIANTS.md` are touched by the change (e.g., a change to `tracker.rs` likely affects SM-* and DP-* invariants).
+2. **Verify each affected invariant**: Read the relevant source code and confirm the invariant still holds. If the invariant references specific values (thresholds, defaults, formats), verify those values in the code.
+3. **Update INVARIANTS.md if behavior intentionally changes**: If a change deliberately alters an invariant (e.g., changing a default value), the corresponding entry in `INVARIANTS.md` **must** be updated in the same commit. Stale invariants are as dangerous as broken ones.
+4. **Add new invariants for new features**: When adding a new feature, add corresponding invariant entries to `INVARIANTS.md` in the same commit.
+
+### Unit Testing Standards
+- Core logic (state machine, statistics engine, storage) must be covered by unit tests.
+- **Hermetic Tests**: Use the `tempfile` crate to ensure tests do not modify the user's actual data.
+- **Determinism**: When testing time-dependent logic, pass explicit timestamps (see `Tracker::update_db`).
 
 ## 7. Dependency Management
 
@@ -67,6 +99,7 @@ This document outlines the engineering principles and architectural patterns fol
 ## 8. Mandatory Documentation Updates
 
 - **Consistency**: Any change to the codebase (new features, refactoring, or bug fixes) **must** be accompanied by an update to the relevant documentation in `doc/` or `README.md`.
+- **Invariants**: Any change that adds, removes, or modifies a user-facing behavior **must** update `INVARIANTS.md` in the same commit. See §6 for the full process.
 
 ## 9. Core Engineering Principles
 
