@@ -29,12 +29,11 @@ pub fn setup_tray(app: &App) -> Result<()> {
         .item(&quit_item)
         .build()?;
 
-    let _tray = TrayIconBuilder::new()
-        .id("main-tray")
+    let _tray = TrayIconBuilder::with_id("main-tray")
         .tooltip("Neflo")
         .title("●")
         .menu(&menu)
-        .menu_on_left_click(false)
+        .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,

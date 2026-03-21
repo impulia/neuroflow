@@ -15,8 +15,6 @@ use crate::system::get_idle_time;
 use crate::tracker::Tracker;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tauri::Manager;
-
 pub fn run() {
     // Acquire single-instance lock before building Tauri app.
     // We keep the lock guard alive for the lifetime of the process by leaking it.

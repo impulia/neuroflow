@@ -3,7 +3,7 @@ use crate::models::IntervalType;
 use crate::stats::calculate_stats;
 use crate::system::get_idle_time;
 use crate::tracker::Tracker;
-use chrono::{Datelike, Duration, Local, NaiveDate, Weekday};
+use chrono::{Datelike, Duration, Local, NaiveDate};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, State};

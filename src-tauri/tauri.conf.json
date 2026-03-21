@@ -3,15 +3,9 @@
   "version": "0.3.0",
   "identifier": "com.impulia.neflo",
   "build": {
-    "beforeDevCommand": {
-      "script": "npm run dev",
-      "cwd": "../ui"
-    },
+    "beforeDevCommand": "cd ../ui && npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": {
-      "script": "npm run build",
-      "cwd": "../ui"
-    },
+    "beforeBuildCommand": "cd ../ui && npm run build",
     "frontendDist": "../ui/dist"
   },
   "app": {
@@ -26,11 +20,8 @@
     "targets": "all",
     "macOS": {
       "minimumSystemVersion": "10.15",
-      "frameworks": [],
       "signingIdentity": null,
-      "infoPlist": {
-        "LSUIElement": true
-      }
+      "infoPlist": "Info.plist"
     }
   },
   "plugins": {
