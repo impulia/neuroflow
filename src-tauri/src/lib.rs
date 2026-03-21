@@ -8,6 +8,7 @@ pub mod tracker;
 pub mod tray_manager;
 pub mod utils;
 
+use crate::commands::emit_update;
 use crate::config::load_config;
 use crate::storage::Storage;
 use crate::system::get_idle_time;
@@ -53,6 +54,7 @@ pub fn run() {
     let config_state: Arc<Mutex<config::Config>> = Arc::new(Mutex::new(config));
 
     let tracker_for_thread = Arc::clone(&tracker_state);
+    let config_for_thread = Arc::clone(&config_state);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_positioner::init())
@@ -92,6 +94,9 @@ pub fn run() {
             tray_manager::setup_tray(app)?;
 
             // Spawn the background tracking thread.
+            // It ticks the tracker every second and emits a `tracker-update`
+            // event so the frontend receives push updates instead of polling.
+            let app_handle = app.handle().clone();
             std::thread::spawn(move || {
                 loop {
                     std::thread::sleep(Duration::from_secs(1));
@@ -104,6 +109,10 @@ pub fn run() {
                     };
 
                     if guard.paused {
+                        // Still emit so the UI stays in sync (e.g. shows paused state).
+                        if let Ok(cfg) = config_for_thread.lock() {
+                            emit_update(&app_handle, &guard, &cfg);
+                        }
                         continue;
                     }
 
@@ -112,10 +121,18 @@ pub fn run() {
                             let _ = guard.storage.save(&guard.db);
                             guard.session_ended_saved = true;
                         }
+                        if let Ok(cfg) = config_for_thread.lock() {
+                            emit_update(&app_handle, &guard, &cfg);
+                        }
                         continue;
                     }
 
                     let _ = guard.tick(idle, now);
+
+                    // Emit the full update to the frontend.
+                    if let Ok(cfg) = config_for_thread.lock() {
+                        emit_update(&app_handle, &guard, &cfg);
+                    }
                 }
             });
 

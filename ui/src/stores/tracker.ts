@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 export interface StateResponse {
   state: string;
@@ -36,6 +37,13 @@ export interface ConfigResponse {
   launch_at_login: boolean;
 }
 
+interface TrackerUpdate {
+  state: StateResponse;
+  stats: StatsResponse;
+  weekly: DayChartData[];
+  config: ConfigResponse;
+}
+
 const defaultState: StateResponse = {
   state: 'waiting',
   elapsed_secs: 0,
@@ -69,42 +77,34 @@ export const stats = writable<StatsResponse>(defaultStats);
 export const weeklyData = writable<DayChartData[]>([]);
 export const config = writable<ConfigResponse>(defaultConfig);
 
-let pollInterval: ReturnType<typeof setInterval> | null = null;
+let unlisten: UnlistenFn | null = null;
 
-async function fetchAll(): Promise<void> {
-  try {
-    const [stateRes, statsRes, weekRes, configRes] = await Promise.all([
-      invoke<StateResponse>('get_current_state'),
-      invoke<StatsResponse>('get_stats'),
-      invoke<DayChartData[]>('get_weekly_chart_data'),
-      invoke<ConfigResponse>('get_config'),
-    ]);
-    currentState.set(stateRes);
-    stats.set(statsRes);
-    weeklyData.set(weekRes);
-    config.set(configRes);
-  } catch (err) {
-    console.error('Failed to fetch tracker data:', err);
-  }
+/**
+ * Subscribe to the `tracker-update` event pushed by the Rust backend
+ * every second. Replaces the old 1-second polling approach.
+ */
+export async function startListening(): Promise<void> {
+  if (unlisten !== null) return;
+
+  unlisten = await listen<TrackerUpdate>('tracker-update', (event) => {
+    const { state, stats: s, weekly, config: c } = event.payload;
+    currentState.set(state);
+    stats.set(s);
+    weeklyData.set(weekly);
+    config.set(c);
+  });
 }
 
-export function startPolling(): void {
-  if (pollInterval !== null) return;
-  fetchAll();
-  pollInterval = setInterval(fetchAll, 1000);
-}
-
-export function stopPolling(): void {
-  if (pollInterval !== null) {
-    clearInterval(pollInterval);
-    pollInterval = null;
+export function stopListening(): void {
+  if (unlisten !== null) {
+    unlisten();
+    unlisten = null;
   }
 }
 
 export async function pauseTracking(): Promise<void> {
   try {
     await invoke('pause_tracking');
-    await fetchAll();
   } catch (err) {
     console.error('Failed to pause tracking:', err);
   }
@@ -113,7 +113,6 @@ export async function pauseTracking(): Promise<void> {
 export async function resumeTracking(): Promise<void> {
   try {
     await invoke('resume_tracking');
-    await fetchAll();
   } catch (err) {
     console.error('Failed to resume tracking:', err);
   }
@@ -122,7 +121,6 @@ export async function resumeTracking(): Promise<void> {
 export async function resetToday(): Promise<void> {
   try {
     await invoke('reset_today');
-    await fetchAll();
   } catch (err) {
     console.error('Failed to reset today:', err);
   }
@@ -131,7 +129,6 @@ export async function resetToday(): Promise<void> {
 export async function updateConfig(newConfig: ConfigResponse): Promise<void> {
   try {
     await invoke('update_config', { newCfg: newConfig });
-    config.set(newConfig);
   } catch (err) {
     console.error('Failed to update config:', err);
   }

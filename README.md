@@ -1,19 +1,16 @@
 # Neflo
 
-Neflo is a simple, lightweight CLI application for macOS that tracks your focus and idle time. It helps you understand your productivity patterns by monitoring system activity and generating reports on your daily and weekly "flow" sessions versus interruptions.
+Neflo is a lightweight macOS menu bar application that tracks your focus and idle time. It helps you understand your productivity patterns by monitoring system activity and displaying real-time statistics in a sleek tray popover.
 
 ## Features
 
+- **Menu Bar App**: Lives in your macOS menu bar with a clean, glassmorphic popover UI built with Svelte and Tauri.
 - **Activity Tracking**: Monitors system-wide keyboard and mouse activity to detect when you are actively working.
 - **Smart Idle Detection**: Automatically transitions to "Idle" state after a configurable period of inactivity (default: 5 minutes).
-- **Persistence**: Automatically stores all tracking data locally in JSON format.
-- **Reporting**: Generates detailed daily and weekly summaries, including:
-    - Total focus and idle time.
-    - Number of interruptions.
-    - Average length of focus and idle sessions.
-- **Configurable**: Easily adjust the idle threshold via command-line flags or a configuration file.
-
-![Neflo TUI Screenshot](assets/screenshot.png)
+- **Event-Driven Architecture**: The Rust backend pushes real-time updates to the frontend via Tauri events — no polling required.
+- **Visual Analytics**: Weekly bar chart showing focus vs. idle time, daily goal progress ring, and motivational banners.
+- **Persistence**: Stores all tracking data locally in JSON format (`~/.neflo/`).
+- **Configurable**: Adjust idle threshold, daily goals, session duration, and more from the in-app settings panel.
 
 ## Documentation
 
@@ -21,107 +18,80 @@ Comprehensive documentation is available in the [doc/](doc/index.md) folder:
 
 - [**Introduction**](doc/introduction.md): Overview of Neflo and its features.
 - [**Setup**](doc/setup.md): System requirements and installation instructions.
-- [**Usage**](doc/usage.md): Guide on how to use the CLI and the TUI dashboard.
-- [**Architecture**](doc/architecture.md): Technical details about the project structure and implementation.
+- [**Usage**](doc/usage.md): Guide on how to use the menu bar app and settings.
+- [**Architecture**](doc/architecture.md): Technical details about the Tauri + Svelte stack and event-driven design.
 - [**Development**](doc/development.md): How to build, test, and contribute to the project.
 - [**Publishing**](doc/publishing.md): Information on the release and publishing process.
 
 ## Requirements
 
-- **Operating System**: macOS (for system-wide activity detection).
-- **Rust**: Version 1.85 or later is recommended.
+- **Operating System**: macOS (uses CoreGraphics for system-wide idle detection).
+- **Rust**: Version 1.85 or later.
+- **Node.js**: Version 18 or later (for the Svelte frontend).
 
-## Installation
-
-To build Neflo from source:
-
-```bash
-cargo build --release
-```
-
-The binary will be available at `target/release/neflo`. You can move it to your `/usr/local/bin` or add the directory to your PATH.
-
-## Usage
-
-### Start Tracking
-
-To start the focus tracker in the foreground:
+## Quick Start
 
 ```bash
-neflo start
+# Install dependencies
+cd ui && npm install && cd ..
+
+# Run in development mode (launches Tauri dev server)
+cargo tauri dev
 ```
-
-You can specify a custom idle threshold (in minutes) using the `--threshold` flag:
-
-```bash
-neflo start --threshold 10
-```
-
-### Session Limits
-
-You can set a start/end time (in 24h format) or a duration for your session:
-
-```bash
-# Start at 9:00 AM and stop after 8 hours
-neflo start -s 09:00 -d 8h
-```
-
-To stop tracking manually, simply press `q` in the TUI or `Ctrl+C`.
-
-### View Reports
-
-To see your focus and idle statistics for the current day and week:
-
-```bash
-neflo report
-```
-
-Neflo calculates the "current week" starting from Monday.
 
 ## Configuration
 
-Neflo stores its data and configuration in the `~/.neflo` directory:
+Neflo stores its data and configuration in `~/.neflo/`:
 
-- `~/.neflo/db.json`: Contains the recorded focus and idle intervals.
-- `~/.neflo/config.json`: Stores default settings.
+- `~/.neflo/db.json`: Recorded focus and idle intervals.
+- `~/.neflo/config.json`: Persistent settings.
 
 Example `config.json`:
 ```json
 {
   "default_threshold_mins": 5,
-  "start_time": "09:00",
-  "end_time": "18:00",
-  "duration": "8h"
+  "duration": null,
+  "daily_goal_hours": 4.0,
+  "show_timer_in_menubar": false,
+  "show_motivational_messages": true,
+  "launch_at_login": false
 }
 ```
 
-## Development and Contribution
+## Project Structure
 
-### Project Structure
+```text
+src-tauri/src/
+├── main.rs           # Entry point
+├── lib.rs            # Tauri app builder, background thread, event emission
+├── tracker.rs        # Core state machine (Focus ↔ Idle transitions)
+├── commands.rs       # Tauri IPC commands + event payload builders
+├── tray_manager.rs   # Menu bar tray icon and context menu
+├── stats.rs          # Statistics calculation engine
+├── storage.rs        # JSON persistence layer
+├── models.rs         # Data structures (Interval, Database)
+├── config.rs         # Configuration management
+├── system.rs         # macOS CoreGraphics FFI for idle detection
+└── utils.rs          # Formatting utilities
 
-- `src/main.rs`: Entry point and CLI argument parsing.
-- `src/tracker.rs`: Core tracking loop and state transition logic.
-- `src/report.rs`: Logic for aggregating data and displaying reports.
-- `src/system.rs`: macOS-specific FFI calls for system idle time.
-- `src/storage.rs`: JSON persistence layer.
-- `src/models.rs`: Data structures for intervals and the database.
-- `src/config.rs`: Configuration management.
-
-### Running Tests
-
-To run the unit tests:
-
-```bash
-cargo test
+ui/src/
+├── main.ts           # Svelte app bootstrap
+├── App.svelte        # Root component (dashboard / settings views)
+├── stores/tracker.ts # Reactive stores + Tauri event listener
+└── lib/              # UI components (StatusHeader, StatsRow, WeeklyChart, etc.)
 ```
 
-### Contributing
+## Development
 
-1. Fork the repository.
-2. Create a new branch for your feature or bugfix.
-3. Ensure your code follows Rust best practices and passes `cargo check`.
-4. Submit a pull request with a clear description of your changes.
+```bash
+# Run tests
+cargo test
+
+# Check formatting and lints
+cargo fmt --all -- --check
+cargo clippy -- -D warnings
+```
 
 ## License
 
-MIT (or your preferred license)
+MIT

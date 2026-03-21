@@ -1,93 +1,54 @@
 # Usage Guide
 
-Neflo provides two main ways to interact with it: the real-time TUI dashboard and a command-line reporting tool.
+Neflo runs as a macOS menu bar (tray) application. Once launched, it sits in your menu bar and tracks your focus automatically.
 
-## Starting the Tracker
+## The Menu Bar Icon
 
-To start tracking your activity, use the `start` command:
+After launching Neflo, a small indicator (●) appears in your macOS menu bar.
 
-```bash
-neflo start
-```
+- **Left-click** the icon to toggle the dashboard popover.
+- **Right-click** (or secondary click) to open the context menu with options: Pause Tracking, Resume Tracking, Reset Today, and Quit Neflo.
 
-### Custom Idle Threshold
+## The Dashboard
 
-By default, Neflo considers you "idle" after 5 minutes of inactivity. You can override this using the `--threshold` (or `-t`) flag:
-
-```bash
-neflo start --threshold 10
-```
-
-The threshold is specified in minutes.
-
-### Operating Window and Timeouts
-
-Neflo allows you to limit the tracking session to a specific time window or duration.
-
-#### Start and End Times
-
-You can specify a start time, an end time, or both using 24h format (HH:MM). If a start time is set, the app will wait (displaying "WAITING") until that time is reached before it starts tracking. If an end time is set, the app will stop tracking (displaying "SESSION ENDED") once that time is reached.
-
-```bash
-# Start tracking at 9:00 AM (24h format)
-neflo start -s 09:00
-
-# Stop tracking at 6:00 PM (24h format)
-neflo start -e 18:00
-```
-
-#### Duration
-
-You can specify a duration for the session (e.g., `8h`, `30m`). If a duration is set, it takes precedence over start/end times: tracking starts immediately and stops once the duration has elapsed.
-
-```bash
-# Track for 4 hours
-neflo start -d 4h
-
-# Track for 30 minutes
-neflo start -d 30m
-```
-
-## The TUI Dashboard
-
-When you run `neflo start`, a Terminal User Interface (TUI) opens.
-
-![Neflo TUI Screenshot](../assets/screenshot.png)
+The dashboard popover displays your real-time tracking data in a compact, glassmorphic UI.
 
 ### Layout
-- **Header**: Shows the current status (IN FLOW or IDLE) and the current time.
-- **Totals**: Displays today's total focus time, idle time, and the number of interruptions.
-- **Averages**: Shows average focus and idle session lengths for the day.
-- **Activity Chart**: A weekly bar chart (Monday to Sunday) showing focus (green) and idle (yellow) time.
-- **Footer**: Displays available keyboard shortcuts.
 
-### Shortcuts
-- `q`: Quit the tracker and save data.
-- `r`: Reset the database (clears all recorded intervals).
+- **Status Header**: Shows your current state (IN FLOW, IDLE, or WAITING) with a colored indicator and elapsed time in the current state.
+- **Motivational Banner**: Context-aware messages that encourage you during focus and comfort you during idle periods. Can be toggled off in settings.
+- **Stats Row**: Three cards showing:
+  - **Focus Progress**: A progress ring showing today's focus time relative to your daily goal.
+  - **Interruptions**: Number of idle-to-focus transitions today (green when zero, amber otherwise).
+  - **Best Streak**: Your longest continuous focus session today.
+- **Weekly Chart**: A stacked bar chart (Monday–Sunday) showing focus (green) and idle (amber) time for each day. Today's bar has a subtle glow. Hover any bar for exact values.
+- **Footer**: Weekly focus summary and a gear icon to open settings.
 
-## Generating Reports
+## Settings Panel
 
-If you want a quick summary without opening the TUI, use the `report` command:
+Click the gear icon in the footer to open settings. Changes take effect immediately.
 
-```bash
-neflo report
-```
+### Tracking
+- **Idle Threshold**: How many minutes of inactivity before Neflo considers you idle (1–30 minutes, default: 5).
+- **Session Duration**: Optional session limit (e.g., `4h`, `30m`). Leave empty for unlimited tracking.
+- **Timer in Menu Bar**: Show elapsed focus time next to the tray icon.
 
-This will print the current week's statistics (starting from Monday) directly to your terminal. Note that while Neflo retains up to 30 days of data, the report focuses exclusively on the current week.
+### Goals
+- **Daily Goal**: Target focus hours per day (1–12 hours, default: 4). Drives the progress ring.
+- **Motivational Messages**: Toggle encouraging banners in the dashboard.
 
-## Updating Neflo
+### System
+- **Launch at Login**: Start Neflo automatically when you log in.
 
-To update Neflo to the latest version directly from GitHub:
-
-```bash
-neflo self-update
-```
+### Data
+- **Reset Today**: Clear all tracking data for the current day. Requires confirmation (double-click within 3 seconds).
 
 ## Data Storage
 
-Neflo stores its data and configuration in your home directory:
-- `~/.neflo/db.json`: The database of recorded intervals.
-- `~/.neflo/config.json`: Persistent configuration settings.
+Neflo stores its data and configuration locally:
+- `~/.neflo/db.json`: The database of recorded focus/idle intervals (auto-pruned after 30 days).
+- `~/.neflo/config.json`: Persistent settings.
+- `~/.neflo/neflo.lock`: Advisory lock preventing multiple instances.
 
 ---
 

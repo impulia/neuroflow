@@ -5,8 +5,8 @@
     stats,
     weeklyData,
     config,
-    startPolling,
-    stopPolling,
+    startListening,
+    stopListening,
     updateConfig,
     resetToday,
     type ConfigResponse,
@@ -21,11 +21,11 @@
   let showSettings = false;
 
   onMount(() => {
-    startPolling();
+    startListening();
   });
 
   onDestroy(() => {
-    stopPolling();
+    stopListening();
   });
 
   function handleSettingsClick() {
