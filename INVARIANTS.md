@@ -220,14 +220,17 @@ them.
 Before pushing any change, run:
 
 ```bash
-# 1. All Rust unit tests pass
-cargo test
+# IMPORTANT: The root Cargo.toml is a legacy CLI crate.
+# All Rust commands MUST run from src-tauri/.
+
+# 1. Code is formatted
+cd src-tauri && cargo fmt --all -- --check && cd ..
 
 # 2. No clippy warnings
-cargo clippy -- -D warnings
+cd src-tauri && cargo clippy -- -D warnings && cd ..
 
-# 3. Code is formatted
-cargo fmt --all -- --check
+# 3. All Rust unit tests pass
+cd src-tauri && cargo test && cd ..
 
 # 4. Frontend builds without errors
 cd ui && npm run build && cd ..

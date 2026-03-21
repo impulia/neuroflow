@@ -32,8 +32,17 @@ This document outlines the engineering principles and architectural patterns fol
 - Event payload construction resides in `src-tauri/src/commands.rs` (`build_*` helper functions and `emit_update()`).
 - Avoid duplicating calculation logic between commands and the background thread — always use the shared helpers.
 
+### Duplicate Logic (commands.rs ↔ tray_manager.rs)
+- Three operations (pause, resume, reset today) exist in **two places**: as Tauri commands in `commands.rs` and as tray fallback functions in `tray_manager.rs`. The tray fallbacks exist so menu actions work even when the webview is not loaded. **If you change the logic in one, you must change the other.**
+
+### IPC Type Contract
+- The Rust `ConfigResponse` struct and the TypeScript `ConfigResponse` interface must always have the same fields. Two `Config` fields (`show_state_icon`, `auto_check_updates`) are **intentionally excluded** from `ConfigResponse` because they have no UI yet. When adding UI for them, update both sides.
+
 ### macOS Integration
 - System-level idle detection is implemented in `src-tauri/src/system.rs` using the `CoreGraphics` framework via FFI. Avoid adding non-macOS dependencies unless properly gated with `#[cfg(target_os = "macos")]`.
+
+### Working Directory
+- **The root `Cargo.toml` is a legacy CLI artifact.** All Rust commands (`cargo test`, `cargo clippy`, `cargo fmt`) must be run from `src-tauri/`, not from the repo root.
 
 ## 4. Frontend Patterns
 
@@ -63,14 +72,17 @@ This document outlines the engineering principles and architectural patterns fol
 Every change must pass the following checks before being committed/pushed:
 
 ```bash
-# 1. All Rust unit tests pass
-cargo test
+# IMPORTANT: The root Cargo.toml is a legacy CLI crate.
+# All Rust commands MUST run from src-tauri/.
+
+# 1. Code is formatted
+cd src-tauri && cargo fmt --all -- --check && cd ..
 
 # 2. No clippy warnings
-cargo clippy -- -D warnings
+cd src-tauri && cargo clippy -- -D warnings && cd ..
 
-# 3. Code is formatted
-cargo fmt --all -- --check
+# 3. All Rust unit tests pass
+cd src-tauri && cargo test && cd ..
 
 # 4. Frontend builds without errors
 cd ui && npm run build && cd ..
