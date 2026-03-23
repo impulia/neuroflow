@@ -38,21 +38,25 @@ final class FocusSessionManager: ObservableObject {
 
     private var tickTimer: Timer?
     private var idleCheckTimer: Timer?
-    private var sessionStartDate: Date?
-    private var segmentStartDate: Date?
-    private var completedSegments: [FocusSegment] = []
+    private(set) var sessionStartDate: Date?
+    private(set) var segmentStartDate: Date?
+    private(set) var completedSegments: [FocusSegment] = []
+    private let sessionStore: SessionStore
 
     // MARK: - Init
 
-    init() {
+    init(sessionStore: SessionStore = .shared, enableTimers: Bool = true) {
+        self.sessionStore = sessionStore
         let defaults = UserDefaults.standard
         self.autoDetectIdle = defaults.object(forKey: "autoDetectIdle") as? Bool ?? true
         self.idleThresholdMinutes = defaults.object(forKey: "idleThresholdMinutes") as? Int ?? 5
         self.startStopHotkey = Self.loadHotkey(key: "startStopHotkey") ?? .empty
         self.interruptHotkey = Self.loadHotkey(key: "interruptHotkey") ?? .empty
 
-        startIdleDetection()
-        registerHotkeys()
+        if enableTimers {
+            startIdleDetection()
+            registerHotkeys()
+        }
     }
 
     // MARK: - Actions
@@ -92,7 +96,7 @@ final class FocusSessionManager: ObservableObject {
                 interruptionCount: interruptionCount,
                 segments: completedSegments
             )
-            SessionStore.shared.append(record)
+            sessionStore.append(record)
         }
 
         resetSession()
@@ -242,6 +246,10 @@ final class SessionStore {
         self.fileURL = dir.appendingPathComponent("sessions.json")
     }
 
+    init(fileURL: URL) {
+        self.fileURL = fileURL
+    }
+
     func append(_ record: FocusSessionRecord) {
         var records = loadAll()
         records.append(record)
@@ -256,7 +264,7 @@ final class SessionStore {
         return (try? decoder.decode([FocusSessionRecord].self, from: data)) ?? []
     }
 
-    private func save(_ records: [FocusSessionRecord]) {
+    func save(_ records: [FocusSessionRecord]) {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

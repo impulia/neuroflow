@@ -19,6 +19,9 @@
 - From running, the user can interrupt → state becomes interrupted and the current segment is recorded.
 - From interrupted, the user can resume → state becomes running and a new segment begins.
 - Stopping from interrupted also saves the session.
+- `start()` while already running is a no-op.
+- `interrupt()` while idle or already interrupted is a no-op.
+- `stop()` while idle is a no-op (no record saved).
 
 ## Focus ring (popover UI)
 - The popover is 300 px wide.
@@ -71,3 +74,32 @@
 - Dates are stored in ISO 8601 format.
 - A session with zero focus seconds (interrupted immediately and stopped) is still saved.
 - Sessions accumulate across app restarts — existing records are never overwritten.
+- Corrupt JSON files result in an empty array (graceful degradation), not a crash.
+
+## Build and test requirements
+- The project builds with zero errors on Xcode 15+ / macOS 14+.
+- All 78 tests pass (75 unit tests in `neuroflowTests` + 3 UI tests in `neuroflowUITests`).
+- No third-party dependencies are present.
+
+## Code invariants (must not be broken)
+- `FocusSessionManager` is the single source of truth for all session state.
+- `SessionStore.append()` is called exactly once per completed session, inside `stop()`.
+- `HotkeyCenter` is only configured via `FocusSessionManager.registerHotkeys()`.
+- All timer callbacks dispatch to `@MainActor` via `Task { @MainActor in … }`.
+- Hotkeys use Carbon modifier bitmasks, not `NSEvent.ModifierFlags`.
+- `FocusSessionManager` accepts `sessionStore:` and `enableTimers:` for test injection.
+- `SessionStore` has `init(fileURL:)` for test isolation — tests never touch `SessionStore.shared`.
+- `SessionStore.save(_:)` has internal (not private) access for test verification.
+
+## Test coverage summary
+| Test struct | What it covers | Test count |
+|-------------|---------------|------------|
+| `FocusSegmentTests` | Duration calculation, ID generation, Codable, Equatable | 8 |
+| `FocusSessionRecordTests` | dayKey/weekOfYear/year, Codable round-trip, multi-segment | 8 |
+| `HotkeyTests` | isEmpty, displayString (all key types), Codable, Equatable | 14 |
+| `SessionStateTests` | All cases exist, Equatable | 2 |
+| `TimeFormattingTests` | asHMS, asMS, asAdaptiveTime, overflow | 4 |
+| `SessionStoreTests` | Load empty, append, accumulate, preserve fields, corrupt file, ISO 8601 | 9 |
+| `FocusSessionManagerTests` | All state transitions, toggle, multi-interrupt cycles, idempotency, persistence | 27 |
+| `HotkeyCenterHelperTests` | Carbon modifier conversion from NSEvent flags | 3 |
+| **Total unit tests** | | **75** |
