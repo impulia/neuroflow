@@ -824,6 +824,56 @@ struct FocusSessionManagerTests {
         manager.stop()
         #expect(store.loadAll().count == 2)
     }
+
+    // MARK: - Manual vs Auto Interrupt (waitingForIdle)
+
+    @Test func manualInterruptSetsWaitingForIdle() {
+        let (manager, _) = makeManager()
+        manager.start()
+        manager.interrupt(manual: true)
+        #expect(manager.state == .interrupted)
+        #expect(manager.waitingForIdle)
+    }
+
+    @Test func autoInterruptDoesNotSetWaitingForIdle() {
+        let (manager, _) = makeManager()
+        manager.start()
+        manager.interrupt(manual: false)
+        #expect(manager.state == .interrupted)
+        #expect(!manager.waitingForIdle)
+    }
+
+    @Test func defaultInterruptIsManual() {
+        let (manager, _) = makeManager()
+        manager.start()
+        manager.interrupt()
+        #expect(manager.waitingForIdle)
+    }
+
+    @Test func resumeClearsWaitingForIdle() {
+        let (manager, _) = makeManager()
+        manager.start()
+        manager.interrupt(manual: true)
+        #expect(manager.waitingForIdle)
+        manager.start() // manual resume
+        #expect(!manager.waitingForIdle)
+    }
+
+    @Test func stopClearsWaitingForIdle() {
+        let (manager, _) = makeManager()
+        manager.start()
+        manager.interrupt(manual: true)
+        #expect(manager.waitingForIdle)
+        manager.stop()
+        #expect(!manager.waitingForIdle)
+    }
+
+    @Test func waitingForIdleFalseOnFreshStart() {
+        let (manager, _) = makeManager()
+        #expect(!manager.waitingForIdle)
+        manager.start()
+        #expect(!manager.waitingForIdle)
+    }
 }
 
 // MARK: - HotkeyCenter Helper Tests

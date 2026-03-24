@@ -42,6 +42,7 @@ final class FocusSessionManager: ObservableObject {
     private(set) var segmentStartDate: Date?
     private(set) var completedSegments: [FocusSegment] = []
     private let sessionStore: SessionStore
+    private(set) var waitingForIdle = false
 
     // MARK: - Init
 
@@ -76,6 +77,7 @@ final class FocusSessionManager: ObservableObject {
         case .interrupted:
             segmentStartDate = Date()
             currentFocusSeconds = 0
+            waitingForIdle = false
             state = .running
             startTicking()
 
@@ -102,13 +104,14 @@ final class FocusSessionManager: ObservableObject {
         resetSession()
     }
 
-    func interrupt() {
+    func interrupt(manual: Bool = true) {
         guard state == .running else { return }
         finalizeCurrentSegment()
         interruptionCount += 1
         currentFocusSeconds = 0
         state = .interrupted
         stopTicking()
+        if manual { waitingForIdle = true }
     }
 
     func toggleStartStop() {
@@ -160,6 +163,7 @@ final class FocusSessionManager: ObservableObject {
         sessionStartDate = nil
         segmentStartDate = nil
         completedSegments = []
+        waitingForIdle = false
     }
 
     // MARK: - Idle Detection
@@ -173,10 +177,14 @@ final class FocusSessionManager: ObservableObject {
                 switch self.state {
                 case .running:
                     if idle >= self.idleThresholdSeconds {
-                        self.interrupt()
+                        self.interrupt(manual: false)
                     }
                 case .interrupted:
-                    if idle < 3 {
+                    if self.waitingForIdle {
+                        if idle >= self.idleThresholdSeconds {
+                            self.waitingForIdle = false
+                        }
+                    } else if idle < 3 {
                         self.start()
                     }
                 case .idle:
