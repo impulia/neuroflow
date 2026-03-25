@@ -22,24 +22,6 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            VStack(spacing: 4) {
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: 32))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.purple, .cyan],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                Text("Neuroflow Settings")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(.primary)
-            }
-            .padding(.top, 24)
-            .padding(.bottom, 20)
-
             Form {
                 // MARK: - Idle Detection
                 Section {
@@ -48,17 +30,15 @@ struct SettingsView: View {
                     }
 
                     if autoDetect {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Label("Idle threshold", systemImage: "hourglass.bottomhalf.filled")
-                                Spacer()
-                                Text("\(Int(idleMinutes)) min")
-                                    .foregroundStyle(.secondary)
-                                    .monospacedDigit()
-                            }
-                            Slider(value: $idleMinutes, in: 1...30, step: 1)
-                                .tint(.cyan)
+                        LabeledContent {
+                            Text("\(Int(idleMinutes)) min")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        } label: {
+                            Label("Idle threshold", systemImage: "hourglass.bottomhalf.filled")
                         }
+                        Slider(value: $idleMinutes, in: 1...30, step: 1)
+                            .tint(.cyan)
                     }
                 } header: {
                     Text("Idle Detection")
@@ -72,61 +52,61 @@ struct SettingsView: View {
                     Text("Global Hotkeys")
                 } footer: {
                     Text("Hotkeys work system-wide, even when Neuroflow is in the background.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
                 }
             }
             .formStyle(.grouped)
+            .scrollDisabled(true)
 
-            // Save Button
             HStack {
                 Spacer()
-                Button("Save") {
-                    save()
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-                .tint(.cyan)
+                Button("Save") { save() }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.cyan)
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(.bottom, 16)
         }
-        .frame(width: 480, height: 420)
+        .frame(width: 480)
+        .fixedSize(horizontal: false, vertical: true)
         .overlay { recordingOverlay }
+        .onAppear { bringWindowToFront() }
     }
 
     // MARK: - Hotkey Row
 
     private func hotkeyRow(label: String, hotkey: Hotkey, target: RecordTarget) -> some View {
-        HStack {
-            Label(label, systemImage: "keyboard")
-            Spacer()
-            Text(hotkey.displayString())
-                .font(.system(.body, design: .rounded).weight(.medium))
-                .foregroundStyle(hotkey.isEmpty ? .secondary : .primary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Color.primary.opacity(0.06))
-                )
+        LabeledContent {
+            HStack(spacing: 8) {
+                Text(hotkey.displayString())
+                    .font(.system(.body, design: .rounded).weight(.medium))
+                    .foregroundStyle(hotkey.isEmpty ? .secondary : .primary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.primary.opacity(0.06))
+                    )
 
-            Button(recording == target ? "Cancel" : "Record") {
-                recording = recording == target ? nil : target
-            }
-            .font(.caption.weight(.medium))
-            .buttonStyle(.bordered)
-            .tint(recording == target ? .red : .accentColor)
-
-            if !hotkey.isEmpty {
-                Button {
-                    clearHotkey(target)
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                Button(recording == target ? "Cancel" : "Record") {
+                    recording = recording == target ? nil : target
                 }
-                .buttonStyle(.plain)
+                .font(.caption.weight(.medium))
+                .buttonStyle(.bordered)
+                .tint(recording == target ? .red : .accentColor)
+
+                if !hotkey.isEmpty {
+                    Button {
+                        clearHotkey(target)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+        } label: {
+            Label(label, systemImage: "keyboard")
         }
     }
 
@@ -171,7 +151,6 @@ struct SettingsView: View {
     // MARK: - Key Handling
 
     private func handleKeyPress(_ keyPress: KeyPress) {
-        // Escape cancels recording
         if keyPress.key == .escape {
             recording = nil
             return
@@ -180,7 +159,6 @@ struct SettingsView: View {
         let carbonMods = carbonModifiers(from: keyPress.modifiers)
         let keyCode = keyPress.key.character.asciiValue.map { UInt16($0) } ?? 0
 
-        // We need at least one modifier for a global hotkey to be practical
         guard carbonMods != 0 else { return }
 
         let hotkey = Hotkey(keyCode: keyCode, carbonModifiers: carbonMods)
@@ -209,13 +187,23 @@ struct SettingsView: View {
         return m
     }
 
+    private func bringWindowToFront() {
+        NSApp.activate(ignoringOtherApps: true)
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            if let window = NSApp.keyWindow {
+                window.level = .floating
+                window.orderFrontRegardless()
+            }
+        }
+    }
+
     private func save() {
         manager.autoDetectIdle = autoDetect
         manager.idleThresholdMinutes = Int(idleMinutes)
         manager.startStopHotkey = ssHotkey
         manager.interruptHotkey = intHotkey
 
-        // Close settings window
         NSApp.keyWindow?.close()
     }
 }

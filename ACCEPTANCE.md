@@ -70,7 +70,8 @@
 
 ## Settings window
 - Settings are accessible via the gear icon in the popover header and via the standard Settings menu.
-- Settings window is 480 × 420 pt.
+- Settings window is 480 pt wide; height is determined by content (no scrollbar).
+- The settings window floats above other windows (LSUIElement app behaviour).
 - Saving settings closes the window.
 
 ## Session persistence
