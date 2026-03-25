@@ -9,12 +9,17 @@ final class FocusSessionManager: ObservableObject {
     // MARK: - Published State
 
     @Published private(set) var state: SessionState = .idle
-    @Published private(set) var currentFocusSeconds: Int = 0
-    @Published private(set) var totalSessionSeconds: Int = 0
+    @Published private(set) var focusElapsedSeconds: Int = 0
+    @Published private(set) var totalFocusSeconds: Int = 0
     @Published private(set) var interruptionCount: Int = 0
+    @Published private(set) var interruptedElapsedSeconds: Int = 0
+    @Published private(set) var totalInterruptedSeconds: Int = 0
 
     // MARK: - Settings (persisted via UserDefaults)
 
+    @Published var goalMinutes: Int {
+        didSet { UserDefaults.standard.set(goalMinutes, forKey: "goalMinutes") }
+    }
     @Published var autoDetectIdle: Bool {
         didSet { UserDefaults.standard.set(autoDetectIdle, forKey: "autoDetectIdle") }
     }
@@ -29,6 +34,8 @@ final class FocusSessionManager: ObservableObject {
     }
 
     var idleThresholdSeconds: Int { idleThresholdMinutes * 60 }
+    var goalSeconds: Int { goalMinutes * 60 }
+    var remainingSeconds: Int { max(goalSeconds - totalFocusSeconds, 0) }
 
     var isRunning: Bool { state == .running }
     var isInterrupted: Bool { state == .interrupted }
@@ -49,6 +56,7 @@ final class FocusSessionManager: ObservableObject {
     init(sessionStore: SessionStore = .shared, enableTimers: Bool = true) {
         self.sessionStore = sessionStore
         let defaults = UserDefaults.standard
+        self.goalMinutes = defaults.object(forKey: "goalMinutes") as? Int ?? 25
         self.autoDetectIdle = defaults.object(forKey: "autoDetectIdle") as? Bool ?? true
         self.idleThresholdMinutes = defaults.object(forKey: "idleThresholdMinutes") as? Int ?? 5
         self.startStopHotkey = Self.loadHotkey(key: "startStopHotkey") ?? .empty
@@ -67,19 +75,21 @@ final class FocusSessionManager: ObservableObject {
         case .idle:
             sessionStartDate = Date()
             segmentStartDate = Date()
-            currentFocusSeconds = 0
-            totalSessionSeconds = 0
+            focusElapsedSeconds = 0
+            totalFocusSeconds = 0
             interruptionCount = 0
+            interruptedElapsedSeconds = 0
+            totalInterruptedSeconds = 0
             completedSegments = []
             state = .running
             startTicking()
 
         case .interrupted:
             segmentStartDate = Date()
-            currentFocusSeconds = 0
+            focusElapsedSeconds = 0
+            interruptedElapsedSeconds = 0
             waitingForIdle = false
             state = .running
-            startTicking()
 
         case .running:
             break
@@ -94,8 +104,10 @@ final class FocusSessionManager: ObservableObject {
             let record = FocusSessionRecord(
                 startDate: start,
                 endDate: Date(),
-                totalFocusSeconds: totalSessionSeconds,
+                totalFocusSeconds: totalFocusSeconds,
+                totalInterruptedSeconds: totalInterruptedSeconds,
                 interruptionCount: interruptionCount,
+                goalSeconds: goalSeconds,
                 segments: completedSegments
             )
             sessionStore.append(record)
@@ -108,9 +120,9 @@ final class FocusSessionManager: ObservableObject {
         guard state == .running else { return }
         finalizeCurrentSegment()
         interruptionCount += 1
-        currentFocusSeconds = 0
+        focusElapsedSeconds = 0
+        interruptedElapsedSeconds = 0
         state = .interrupted
-        stopTicking()
         if manual { waitingForIdle = true }
     }
 
@@ -124,13 +136,27 @@ final class FocusSessionManager: ObservableObject {
 
     // MARK: - Tick Timer
 
+    func tick() {
+        switch state {
+        case .running:
+            focusElapsedSeconds += 1
+            totalFocusSeconds += 1
+            if totalFocusSeconds >= goalSeconds {
+                stop()
+            }
+        case .interrupted:
+            interruptedElapsedSeconds += 1
+            totalInterruptedSeconds += 1
+        case .idle:
+            break
+        }
+    }
+
     private func startTicking() {
         stopTicking()
         tickTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             Task { @MainActor [weak self] in
-                guard let self, self.state == .running else { return }
-                self.currentFocusSeconds += 1
-                self.totalSessionSeconds += 1
+                self?.tick()
             }
         }
         RunLoop.main.add(tickTimer!, forMode: .common)
@@ -144,8 +170,7 @@ final class FocusSessionManager: ObservableObject {
     // MARK: - Segment Management
 
     private func finalizeCurrentSegment() {
-        stopTicking()
-        guard let start = segmentStartDate, currentFocusSeconds > 0 else {
+        guard let start = segmentStartDate, focusElapsedSeconds > 0 else {
             segmentStartDate = nil
             return
         }
@@ -157,9 +182,11 @@ final class FocusSessionManager: ObservableObject {
     private func resetSession() {
         stopTicking()
         state = .idle
-        currentFocusSeconds = 0
-        totalSessionSeconds = 0
+        focusElapsedSeconds = 0
+        totalFocusSeconds = 0
         interruptionCount = 0
+        interruptedElapsedSeconds = 0
+        totalInterruptedSeconds = 0
         sessionStartDate = nil
         segmentStartDate = nil
         completedSegments = []

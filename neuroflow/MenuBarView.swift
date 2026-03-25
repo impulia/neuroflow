@@ -2,34 +2,30 @@ import SwiftUI
 
 struct MenuBarView: View {
     @ObservedObject var manager: FocusSessionManager
-
-    /// Target for the progress ring (50 min Pomodoro-style)
-    private let targetSeconds: CGFloat = 50 * 60
+    @State private var goalText: String = ""
+    @State private var isEditing: Bool = false
+    @FocusState private var isFieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             header
                 .padding(.bottom, 16)
 
-            // Focus Ring
             focusRing
                 .padding(.bottom, 20)
 
-            // Stats Row
             statsRow
                 .padding(.bottom, 20)
 
-            // Action Buttons
             actionButtons
-
-            // State Badge
-            stateBadge
-                .padding(.top, 12)
         }
         .padding(20)
         .frame(width: 300)
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: manager.state)
+        .onAppear { goalText = "\(manager.goalMinutes)" }
+        .onChange(of: manager.goalMinutes) { _, newValue in
+            if !isEditing { goalText = "\(newValue)" }
+        }
     }
 
     // MARK: - Header
@@ -85,28 +81,30 @@ struct MenuBarView: View {
                 .animation(.easeInOut(duration: 0.6), value: ringProgress)
 
             // Center Content
-            VStack(spacing: 4) {
-                Text("CURRENT")
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-                    .tracking(1.5)
-                    .foregroundStyle(.secondary)
-
-                Text(manager.currentFocusSeconds.asAdaptiveTime())
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: timerGradient,
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .contentTransition(.numericText())
-                    .animation(.default, value: manager.currentFocusSeconds)
+            VStack(spacing: 2) {
+                if manager.isActive {
+                    Text(statusLabel)
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .tracking(1.5)
+                        .foregroundStyle(statusColor)
+                        .transition(.opacity)
+                }
 
                 if manager.isActive {
-                    Text("of \(Int(targetSeconds / 60))m goal")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(.secondary.opacity(0.7))
+                    Text(manager.remainingSeconds.asAdaptiveTime())
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: timerGradient,
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .contentTransition(.numericText())
+                        .animation(.default, value: manager.remainingSeconds)
+                } else {
+                    goalEditor
                 }
             }
         }
@@ -118,18 +116,18 @@ struct MenuBarView: View {
         HStack(spacing: 0) {
             statCard(
                 icon: "clock.fill",
-                label: "Session",
-                value: manager.totalSessionSeconds.asAdaptiveTime(),
+                label: "Focus",
+                value: manager.totalFocusSeconds.asAdaptiveTime(),
                 color: .blue
             )
             Divider()
                 .frame(height: 32)
                 .padding(.horizontal, 8)
             statCard(
-                icon: "exclamationmark.triangle.fill",
-                label: "Interruptions",
-                value: "\(manager.interruptionCount)",
-                color: manager.interruptionCount > 0 ? .orange : .green
+                icon: "pause.circle.fill",
+                label: "Idle",
+                value: manager.totalInterruptedSeconds.asAdaptiveTime(),
+                color: .orange
             )
         }
         .padding(.vertical, 10)
@@ -151,6 +149,7 @@ struct MenuBarView: View {
                     .foregroundStyle(.secondary)
                 Text(value)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
                     .foregroundStyle(.primary)
                     .contentTransition(.numericText())
             }
@@ -200,32 +199,60 @@ struct MenuBarView: View {
         }
     }
 
-    // MARK: - State Badge
+    // MARK: - Goal Editor
 
-    private var stateBadge: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(badgeColor)
-                .frame(width: 6, height: 6)
-                .shadow(color: badgeColor.opacity(0.6), radius: 3)
+    private var goalEditor: some View {
+        VStack(spacing: 2) {
+            if isEditing {
+                TextField("", text: $goalText)
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+                    .textFieldStyle(.plain)
+                    .frame(width: 56)
+                    .focused($isFieldFocused)
+                    .onSubmit { commitGoal() }
+                    .onChange(of: isFieldFocused) { _, focused in
+                        if !focused { commitGoal() }
+                    }
+                    .onAppear { isFieldFocused = true }
+            } else {
+                Text(goalText)
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.purple.opacity(0.5), .cyan.opacity(0.5)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
 
-            Text(badgeLabel)
+            Text("min")
                 .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondary.opacity(0.5))
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(
-            Capsule()
-                .fill(Color.primary.opacity(0.04))
-        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard !isEditing else { return }
+            goalText = "\(manager.goalMinutes)"
+            isEditing = true
+        }
+    }
+
+    private func commitGoal() {
+        if let value = Int(goalText), value >= 1, value <= 120 {
+            manager.goalMinutes = value
+        }
+        goalText = "\(manager.goalMinutes)"
+        isEditing = false
     }
 
     // MARK: - Computed Helpers
 
     private var ringProgress: CGFloat {
-        guard targetSeconds > 0 else { return 0 }
-        return min(CGFloat(manager.currentFocusSeconds) / targetSeconds, 1.0)
+        guard manager.goalSeconds > 0 else { return 0 }
+        return min(CGFloat(manager.totalFocusSeconds) / CGFloat(manager.goalSeconds), 1.0)
     }
 
     private var ringColors: [Color] {
@@ -268,19 +295,19 @@ struct MenuBarView: View {
         }
     }
 
-    private var badgeColor: Color {
+    private var statusLabel: String {
         switch manager.state {
-        case .running:    return .green
-        case .interrupted: return .orange
-        case .idle:       return .gray
+        case .idle:        return ""
+        case .running:     return "FOCUS"
+        case .interrupted: return "IDLE"
         }
     }
 
-    private var badgeLabel: String {
+    private var statusColor: Color {
         switch manager.state {
-        case .running:    return "Focusing"
-        case .interrupted: return "Interrupted"
-        case .idle:       return "Idle"
+        case .idle:        return .clear
+        case .running:     return .cyan
+        case .interrupted: return .orange
         }
     }
 }

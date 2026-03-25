@@ -10,7 +10,7 @@
 ## App presence
 - The app appears only in the macOS menu bar — no Dock icon, no app switcher entry.
 - The menu bar icon is a brain outline when idle, a filled brain when running, and a pause circle when interrupted.
-- When a session is running, the elapsed focus time (current segment) is shown next to the icon in `MM:SS` format, switching to `HH:MM:SS` once it reaches one hour.
+- When a session is active (running or interrupted), the remaining countdown time is shown next to the icon in `MM:SS` format, switching to `HH:MM:SS` once it reaches one hour.
 
 ## Session states
 - The app is always in exactly one of three states: **idle**, **running**, or **interrupted**.
@@ -25,23 +25,29 @@
 
 ## Focus ring (popover UI)
 - The popover is 300 px wide.
-- A circular progress ring shows the current segment's elapsed time as a fraction of a 50-minute goal.
+- A circular progress ring shows total focus time as a fraction of the user's goal.
 - The ring is grey when idle, purple-to-cyan gradient when running, orange-to-yellow when interrupted.
-- The center of the ring displays a `MM:SS` / `HH:MM:SS` counter for the current segment.
+- When running, a "FOCUS" label in cyan appears above the countdown. When interrupted, an "IDLE" label in orange appears. When idle, no status label is shown.
+- When idle, the center of the ring shows the goal duration in minutes with a subtle gradient — tapping it opens an inline editor.
+- When active (running or interrupted), the center shows the remaining countdown time in `MM:SS` / `HH:MM:SS`.
 - The ring animates smoothly on state transitions.
 
+## Countdown timer
+- The countdown counts down from the user's goal (e.g. 25 minutes).
+- Only active focus time counts toward the countdown — interruptions pause it.
+- When the countdown reaches zero, the session auto-stops and is saved.
+- The goal duration is configurable from 1 to 120 minutes (default: 25 minutes).
+- The goal duration is persisted across app restarts via UserDefaults key `"goalMinutes"`.
+
 ## Stats
-- A stats row shows: total session time (all segments combined) and interruption count for the active session.
-- Interruption count is green when zero, orange when above zero.
+- A stats row shows: total focus time and total idle/interrupted time for the active session.
+- Focus time is shown in blue; idle time is shown in orange.
 - All counters reset to zero when a new session starts.
 
 ## Action buttons
 - "Start Focus" button starts a session from idle; label changes to "End Session" while running; "Resume" while interrupted.
 - "Interrupt" button is only enabled while running.
 - Primary button colour: green (idle/interrupted), red (running).
-
-## State badge
-- A badge at the bottom of the popover shows "Focusing", "Interrupted", or "Idle" with a matching colour dot.
 
 ## Idle auto-detection
 - When auto-detect is enabled (default: on), the app monitors system idle time via IOKit every 2 seconds.
@@ -69,7 +75,8 @@
 
 ## Session persistence
 - Completed sessions are written to `~/Library/Application Support/neuroflow/sessions.json`.
-- Each record includes: id, startDate, endDate, totalFocusSeconds, interruptionCount, and the list of segments.
+- Each record includes: id, startDate, endDate, totalFocusSeconds, totalInterruptedSeconds, interruptionCount, goalSeconds, and the list of segments.
+- Records without `totalInterruptedSeconds` or `goalSeconds` (from older versions) decode with defaults of 0.
 - Each segment includes: id, startDate, endDate, durationSeconds.
 - Dates are stored in ISO 8601 format.
 - A session with zero focus seconds (interrupted immediately and stopped) is still saved.
@@ -78,7 +85,7 @@
 
 ## Build and test requirements
 - The project builds with zero errors on Xcode 15+ / macOS 14+.
-- All 78 tests pass (75 unit tests in `neuroflowTests` + 3 UI tests in `neuroflowUITests`).
+- All 95 tests pass (92 unit tests in `neuroflowTests` + 3 UI tests in `neuroflowUITests`).
 - No third-party dependencies are present.
 
 ## Code invariants (must not be broken)
@@ -95,11 +102,11 @@
 | Test struct | What it covers | Test count |
 |-------------|---------------|------------|
 | `FocusSegmentTests` | Duration calculation, ID generation, Codable, Equatable | 8 |
-| `FocusSessionRecordTests` | dayKey/weekOfYear/year, Codable round-trip, multi-segment | 8 |
+| `FocusSessionRecordTests` | dayKey/weekOfYear/year, Codable round-trip, multi-segment, backward-compat decode | 9 |
 | `HotkeyTests` | isEmpty, displayString (all key types), Codable, Equatable | 14 |
 | `SessionStateTests` | All cases exist, Equatable | 2 |
 | `TimeFormattingTests` | asHMS, asMS, asAdaptiveTime, overflow | 4 |
 | `SessionStoreTests` | Load empty, append, accumulate, preserve fields, corrupt file, ISO 8601 | 9 |
-| `FocusSessionManagerTests` | All state transitions, toggle, multi-interrupt cycles, idempotency, persistence | 27 |
+| `FocusSessionManagerTests` | All state transitions, toggle, multi-interrupt cycles, idempotency, persistence, waitingForIdle, tick, countdown, auto-stop, interrupted time tracking | 43 |
 | `HotkeyCenterHelperTests` | Carbon modifier conversion from NSEvent flags | 3 |
-| **Total unit tests** | | **75** |
+| **Total unit tests** | | **92** |

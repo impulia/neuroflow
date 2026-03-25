@@ -25,7 +25,9 @@ struct FocusSessionRecord: Codable, Identifiable, Equatable {
     let startDate: Date
     let endDate: Date
     let totalFocusSeconds: Int
+    let totalInterruptedSeconds: Int
     let interruptionCount: Int
+    let goalSeconds: Int
     let segments: [FocusSegment]
 
     /// Calendar day string for grouping (e.g. "2026-03-23")
@@ -45,13 +47,27 @@ struct FocusSessionRecord: Codable, Identifiable, Equatable {
         Calendar.current.component(.year, from: startDate)
     }
 
-    init(id: UUID = UUID(), startDate: Date, endDate: Date, totalFocusSeconds: Int, interruptionCount: Int, segments: [FocusSegment]) {
+    init(id: UUID = UUID(), startDate: Date, endDate: Date, totalFocusSeconds: Int, totalInterruptedSeconds: Int = 0, interruptionCount: Int, goalSeconds: Int = 0, segments: [FocusSegment]) {
         self.id = id
         self.startDate = startDate
         self.endDate = endDate
         self.totalFocusSeconds = totalFocusSeconds
+        self.totalInterruptedSeconds = totalInterruptedSeconds
         self.interruptionCount = interruptionCount
+        self.goalSeconds = goalSeconds
         self.segments = segments
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        startDate = try container.decode(Date.self, forKey: .startDate)
+        endDate = try container.decode(Date.self, forKey: .endDate)
+        totalFocusSeconds = try container.decode(Int.self, forKey: .totalFocusSeconds)
+        totalInterruptedSeconds = try container.decodeIfPresent(Int.self, forKey: .totalInterruptedSeconds) ?? 0
+        interruptionCount = try container.decode(Int.self, forKey: .interruptionCount)
+        goalSeconds = try container.decodeIfPresent(Int.self, forKey: .goalSeconds) ?? 0
+        segments = try container.decode([FocusSegment].self, forKey: .segments)
     }
 }
 

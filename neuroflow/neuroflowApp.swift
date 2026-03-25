@@ -20,8 +20,8 @@ struct neuroflowApp: App {
     private var menuBarLabel: some View {
         HStack(spacing: 4) {
             Image(systemName: menuBarIcon)
-            if manager.isRunning {
-                Text(manager.currentFocusSeconds.asAdaptiveTime())
+            if manager.isActive {
+                Text(manager.remainingSeconds.asAdaptiveTime())
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .monospacedDigit()
             }

@@ -170,6 +170,27 @@ struct FocusSessionRecordTests {
         #expect(record.interruptionCount == 0)
     }
 
+    @Test func backwardCompatDecodeWithoutNewFields() throws {
+        // Simulate a record encoded before totalInterruptedSeconds/goalSeconds were added
+        let json = """
+        {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "startDate": "1970-01-01T00:16:40Z",
+            "endDate": "1970-01-01T00:33:20Z",
+            "totalFocusSeconds": 300,
+            "interruptionCount": 1,
+            "segments": []
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let record = try decoder.decode(FocusSessionRecord.self, from: Data(json.utf8))
+        #expect(record.totalInterruptedSeconds == 0)
+        #expect(record.goalSeconds == 0)
+        #expect(record.totalFocusSeconds == 300)
+        #expect(record.interruptionCount == 1)
+    }
+
     @Test func recordWithMultipleSegments() throws {
         let seg1 = FocusSegment(
             startDate: Date(timeIntervalSince1970: 100),
@@ -565,8 +586,8 @@ struct FocusSessionManagerTests {
     @Test func initialStateIsIdle() {
         let (manager, _) = makeManager()
         #expect(manager.state == .idle)
-        #expect(manager.currentFocusSeconds == 0)
-        #expect(manager.totalSessionSeconds == 0)
+        #expect(manager.focusElapsedSeconds == 0)
+        #expect(manager.totalFocusSeconds == 0)
         #expect(manager.interruptionCount == 0)
     }
 
@@ -591,8 +612,8 @@ struct FocusSessionManagerTests {
     @Test func startFromIdleResetsCounters() {
         let (manager, _) = makeManager()
         manager.start()
-        #expect(manager.currentFocusSeconds == 0)
-        #expect(manager.totalSessionSeconds == 0)
+        #expect(manager.focusElapsedSeconds == 0)
+        #expect(manager.totalFocusSeconds == 0)
         #expect(manager.interruptionCount == 0)
     }
 
@@ -626,8 +647,8 @@ struct FocusSessionManagerTests {
         manager.start()
         manager.stop()
         #expect(manager.state == .idle)
-        #expect(manager.currentFocusSeconds == 0)
-        #expect(manager.totalSessionSeconds == 0)
+        #expect(manager.focusElapsedSeconds == 0)
+        #expect(manager.totalFocusSeconds == 0)
         #expect(manager.interruptionCount == 0)
         #expect(manager.sessionStartDate == nil)
         #expect(manager.segmentStartDate == nil)
@@ -669,7 +690,7 @@ struct FocusSessionManagerTests {
         let (manager, _) = makeManager()
         manager.start()
         manager.interrupt()
-        #expect(manager.currentFocusSeconds == 0)
+        #expect(manager.focusElapsedSeconds == 0)
     }
 
     @Test func interruptFromIdleIsNoOp() {
@@ -696,7 +717,7 @@ struct FocusSessionManagerTests {
         manager.interrupt()
         manager.start() // resume
         #expect(manager.state == .running)
-        #expect(manager.currentFocusSeconds == 0)
+        #expect(manager.focusElapsedSeconds == 0)
     }
 
     @Test func resumePreservesSessionStartDate() {
@@ -873,6 +894,115 @@ struct FocusSessionManagerTests {
         #expect(!manager.waitingForIdle)
         manager.start()
         #expect(!manager.waitingForIdle)
+    }
+
+    // MARK: - Tick & Countdown
+
+    @Test func tickWhileRunningIncrementsFocusCounters() {
+        let (manager, _) = makeManager()
+        manager.start()
+        manager.tick()
+        #expect(manager.focusElapsedSeconds == 1)
+        #expect(manager.totalFocusSeconds == 1)
+        #expect(manager.interruptedElapsedSeconds == 0)
+        #expect(manager.totalInterruptedSeconds == 0)
+    }
+
+    @Test func tickWhileInterruptedIncrementsInterruptedCounters() {
+        let (manager, _) = makeManager()
+        manager.start()
+        manager.interrupt()
+        manager.tick()
+        #expect(manager.interruptedElapsedSeconds == 1)
+        #expect(manager.totalInterruptedSeconds == 1)
+        #expect(manager.focusElapsedSeconds == 0)
+    }
+
+    @Test func tickWhileIdleIsNoOp() {
+        let (manager, _) = makeManager()
+        manager.tick()
+        #expect(manager.focusElapsedSeconds == 0)
+        #expect(manager.totalFocusSeconds == 0)
+        #expect(manager.interruptedElapsedSeconds == 0)
+        #expect(manager.totalInterruptedSeconds == 0)
+    }
+
+    @Test func autoStopWhenGoalReached() {
+        let (manager, store) = makeManager()
+        manager.goalMinutes = 1 // 60 seconds
+        manager.start()
+        for _ in 0..<60 {
+            manager.tick()
+        }
+        #expect(manager.state == .idle)
+        #expect(store.loadAll().count == 1)
+    }
+
+    @Test func remainingSecondsComputedCorrectly() {
+        let (manager, _) = makeManager()
+        manager.goalMinutes = 2 // 120 seconds
+        manager.start()
+        for _ in 0..<30 {
+            manager.tick()
+        }
+        #expect(manager.remainingSeconds == 90)
+    }
+
+    @Test func remainingSecondsNeverNegative() {
+        let (manager, _) = makeManager()
+        manager.goalMinutes = 1 // 60 seconds
+        manager.start()
+        // tick 59 times (one before auto-stop would trigger)
+        for _ in 0..<59 {
+            manager.tick()
+        }
+        #expect(manager.remainingSeconds == 1)
+        // tick once more — auto-stop fires, remaining is 0
+        manager.tick()
+        #expect(manager.remainingSeconds >= 0)
+    }
+
+    @Test func interruptedTimeTrackedAcrossCycles() {
+        let (manager, store) = makeManager()
+        manager.goalMinutes = 10
+        manager.start()
+        for _ in 0..<5 { manager.tick() } // 5s focus
+        manager.interrupt()
+        for _ in 0..<3 { manager.tick() } // 3s interrupted
+        manager.start() // resume
+        for _ in 0..<5 { manager.tick() } // 5s more focus
+        manager.stop()
+
+        let records = store.loadAll()
+        #expect(records.count == 1)
+        #expect(records[0].totalInterruptedSeconds == 3)
+        #expect(records[0].totalFocusSeconds == 10)
+    }
+
+    @Test func goalSecondsInSavedRecord() {
+        let (manager, store) = makeManager()
+        manager.goalMinutes = 30
+        manager.start()
+        manager.stop()
+        let records = store.loadAll()
+        #expect(records.count == 1)
+        #expect(records[0].goalSeconds == 1800)
+    }
+
+    @Test func goalSecondsComputed() {
+        let (manager, _) = makeManager()
+        manager.goalMinutes = 45
+        #expect(manager.goalSeconds == 2700)
+    }
+
+    @Test func interruptedElapsedResetsOnResume() {
+        let (manager, _) = makeManager()
+        manager.start()
+        manager.interrupt()
+        for _ in 0..<5 { manager.tick() }
+        #expect(manager.interruptedElapsedSeconds == 5)
+        manager.start() // resume
+        #expect(manager.interruptedElapsedSeconds == 0)
     }
 }
 

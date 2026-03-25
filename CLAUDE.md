@@ -31,7 +31,7 @@ ContentView           — placeholder, not used in production flow
 - Idle auto-detection checks every 2 s; threshold configurable (default 5 min)
 - On stop, a `FocusSessionRecord` (with segments) is appended to `SessionStore`
 - Each uninterrupted focus period is a `FocusSegment` with its own `startDate` / `endDate`
-- `finalizeCurrentSegment()` is called on both `interrupt()` and `stop()` — only if `currentFocusSeconds > 0`
+- `finalizeCurrentSegment()` is called on both `interrupt()` and `stop()` — only if `focusElapsedSeconds > 0`
 
 ## State machine — exact transitions
 ```
@@ -59,9 +59,12 @@ interrupted → interrupt()    → no-op
 - `startDate: Date`
 - `endDate: Date`
 - `totalFocusSeconds: Int`
+- `totalInterruptedSeconds: Int` (default 0 for backward compat)
 - `interruptionCount: Int`
+- `goalSeconds: Int` (default 0 for backward compat)
 - `segments: [FocusSegment]`
 - Computed: `dayKey: String` (yyyy-MM-dd), `weekOfYear: Int`, `year: Int`
+- Custom `init(from decoder:)` uses `decodeIfPresent` for `totalInterruptedSeconds` and `goalSeconds`
 
 ### Hotkey (Codable, Equatable)
 - `keyCode: UInt16` — Carbon virtual key code (e.g. `kVK_ANSI_F = 3`)
@@ -82,9 +85,12 @@ interrupted → interrupt()    → no-op
 | Property | Type | Access | Notes |
 |----------|------|--------|-------|
 | `state` | `SessionState` | `private(set)` | Current state machine state |
-| `currentFocusSeconds` | `Int` | `private(set)` | Seconds in current segment |
-| `totalSessionSeconds` | `Int` | `private(set)` | Total seconds across all segments |
+| `focusElapsedSeconds` | `Int` | `private(set)` | Seconds in current segment |
+| `totalFocusSeconds` | `Int` | `private(set)` | Total focus seconds across all segments |
 | `interruptionCount` | `Int` | `private(set)` | Number of interruptions in current session |
+| `interruptedElapsedSeconds` | `Int` | `private(set)` | Seconds in current interruption |
+| `totalInterruptedSeconds` | `Int` | `private(set)` | Total interrupted seconds across session |
+| `goalMinutes` | `Int` | read-write | Persisted via UserDefaults key `"goalMinutes"` (default 25) |
 | `autoDetectIdle` | `Bool` | read-write | Persisted via UserDefaults key `"autoDetectIdle"` |
 | `idleThresholdMinutes` | `Int` | read-write | Persisted via UserDefaults key `"idleThresholdMinutes"` |
 | `startStopHotkey` | `Hotkey` | read-write | Persisted as JSON via UserDefaults key `"startStopHotkey"` |
@@ -94,6 +100,8 @@ interrupted → interrupt()    → no-op
 | Property | Type | Logic |
 |----------|------|-------|
 | `idleThresholdSeconds` | `Int` | `idleThresholdMinutes * 60` |
+| `goalSeconds` | `Int` | `goalMinutes * 60` |
+| `remainingSeconds` | `Int` | `max(goalSeconds - totalFocusSeconds, 0)` |
 | `isRunning` | `Bool` | `state == .running` |
 | `isInterrupted` | `Bool` | `state == .interrupted` |
 | `isActive` | `Bool` | `state != .idle` |
@@ -127,6 +135,7 @@ interrupted → interrupt()    → no-op
 ## UserDefaults keys (complete list)
 | Key | Type | Default | Written by |
 |-----|------|---------|------------|
+| `"goalMinutes"` | `Int` | `25` | `FocusSessionManager.goalMinutes.didSet` |
 | `"autoDetectIdle"` | `Bool` | `true` | `FocusSessionManager.autoDetectIdle.didSet` |
 | `"idleThresholdMinutes"` | `Int` | `5` | `FocusSessionManager.idleThresholdMinutes.didSet` |
 | `"startStopHotkey"` | `Data` (JSON) | nil | `FocusSessionManager.persistHotkey()` |
@@ -167,11 +176,11 @@ interrupted → interrupt()    → no-op
 - Test `FocusSessionManager` behaviour through its public API using `enableTimers: false`
 - Test `SessionStore` using `init(fileURL:)` with temp directories
 - Do not mock `FocusSessionManager` internals
-- 75 unit tests currently cover: FocusSegment, FocusSessionRecord, Hotkey, SessionState, Int time extensions, SessionStore, FocusSessionManager state machine, HotkeyCenter helpers
+- 92 unit tests currently cover: FocusSegment, FocusSessionRecord, Hotkey, SessionState, Int time extensions, SessionStore, FocusSessionManager state machine + countdown + auto-stop + interrupted time, HotkeyCenter helpers
 - Run tests: `RunAllTests` or `RunSomeTests` with target `neuroflowTests`
 
 ## Before concluding any task
 1. Build succeeds with zero errors
-2. All 78 tests pass (75 unit + 3 UI)
+2. All 95 tests pass (92 unit + 3 UI)
 3. Verify all criteria in `ACCEPTANCE.md` still hold
 4. Update `ACCEPTANCE.md` if requirements change

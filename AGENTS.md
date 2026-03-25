@@ -29,7 +29,9 @@ macOS 14+ menu bar focus tracker. Swift + SwiftUI, no external deps. Single bina
 7. `FocusSessionManager` has two init params: `sessionStore` (default `.shared`) and `enableTimers` (default `true`). Tests must use `enableTimers: false`.
 8. `save(_:)` on `SessionStore` is internal access (not private) to support test verification. Do not make it private.
 9. The state machine has exactly 3 states and 4 valid transitions (see `CLAUDE.md`). Invalid transitions are no-ops, not errors.
-10. All 78 tests must pass before any PR or task completion.
+10. All 95 tests must pass before any PR or task completion.
+11. `tick()` on `FocusSessionManager` is internal access to support test simulation. Timer calls it every second.
+12. Countdown auto-stops the session when `totalFocusSeconds >= goalSeconds` — this happens inside `tick()`.
 
 ## Common hallucination risks — verify before using
 | Risk | Correct answer |
@@ -43,6 +45,10 @@ macOS 14+ menu bar focus tracker. Swift + SwiftUI, no external deps. Single bina
 | `interruptionCount` on double interrupt | Does NOT increment — `interrupt()` guards `state == .running` |
 | `stop()` from idle | No-op, no record saved |
 | `start()` while running | No-op, counters unchanged |
+| Published focus counter name | `focusElapsedSeconds` (current segment), `totalFocusSeconds` (all segments) — NOT `currentFocusSeconds` or `totalSessionSeconds` |
+| Published interrupted counters | `interruptedElapsedSeconds` (current), `totalInterruptedSeconds` (all) |
+| Goal property | `goalMinutes` (read-write, persisted), `goalSeconds` (computed), `remainingSeconds` (computed) |
+| `FocusSessionRecord` new fields | `totalInterruptedSeconds`, `goalSeconds` — both default to 0 for backward compat |
 | `sessionStartDate` on resume | Preserved from original `start()`, NOT reset |
 | `segmentStartDate` on resume | Reset to new `Date()` |
 | Test framework | Swift Testing (`@Test`, `#expect`), NOT XCTest (`XCTAssert`) |
