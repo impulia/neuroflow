@@ -36,7 +36,7 @@
 - The countdown counts down from the user's goal (e.g. 25 minutes).
 - Only active focus time counts toward the countdown — interruptions pause it.
 - When the countdown reaches zero, the session auto-stops and is saved.
-- The goal duration is configurable from 1 to 120 minutes (default: 25 minutes).
+- The goal duration is configurable from 1 to 480 minutes (default: 25 minutes).
 - The goal duration is persisted across app restarts via UserDefaults key `"goalMinutes"`.
 
 ## Stats

@@ -5,6 +5,7 @@ struct MenuBarView: View {
     @State private var goalText: String = ""
     @State private var isEditing: Bool = false
     @FocusState private var isFieldFocused: Bool
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         VStack(spacing: 0) {
@@ -16,6 +17,7 @@ struct MenuBarView: View {
 
             statsRow
                 .padding(.bottom, 20)
+                .onTapGesture { commitGoal() }
 
             actionButtons
         }
@@ -25,6 +27,9 @@ struct MenuBarView: View {
         .onAppear { goalText = "\(manager.goalMinutes)" }
         .onChange(of: manager.goalMinutes) { _, newValue in
             if !isEditing { goalText = "\(newValue)" }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase != .active { commitGoal() }
         }
     }
 
@@ -62,6 +67,8 @@ struct MenuBarView: View {
             Circle()
                 .stroke(Color.primary.opacity(0.08), lineWidth: 10)
                 .frame(width: 140, height: 140)
+                .contentShape(Circle())
+                .onTapGesture { commitGoal() }
 
             // Progress arc
             Circle()
@@ -163,6 +170,7 @@ struct MenuBarView: View {
         HStack(spacing: 10) {
             // Primary: Start / Stop
             Button {
+                commitGoal()
                 if manager.isRunning {
                     manager.stop()
                 } else {
@@ -183,6 +191,7 @@ struct MenuBarView: View {
 
             // Interrupt
             Button {
+                commitGoal()
                 manager.interrupt()
             } label: {
                 HStack(spacing: 6) {
@@ -209,9 +218,10 @@ struct MenuBarView: View {
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
                     .textFieldStyle(.plain)
-                    .frame(width: 56)
+                    .frame(width: 72)
                     .focused($isFieldFocused)
                     .onSubmit { commitGoal() }
+                    .onExitCommand { commitGoal() }
                     .onChange(of: isFieldFocused) { _, focused in
                         if !focused { commitGoal() }
                     }
@@ -241,11 +251,13 @@ struct MenuBarView: View {
     }
 
     private func commitGoal() {
-        if let value = Int(goalText), value >= 1, value <= 120 {
+        guard isEditing else { return }
+        if let value = Int(goalText), value >= 1, value <= 480 {
             manager.goalMinutes = value
         }
         goalText = "\(manager.goalMinutes)"
         isEditing = false
+        isFieldFocused = false
     }
 
     // MARK: - Computed Helpers
