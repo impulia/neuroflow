@@ -98,7 +98,7 @@ struct MenuBarView: View {
                 }
 
                 if manager.isActive {
-                    Text(manager.remainingSeconds.asAdaptiveTime())
+                    Text(manager.totalFocusSeconds.asAdaptiveTime())
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(
@@ -109,7 +109,7 @@ struct MenuBarView: View {
                             )
                         )
                         .contentTransition(.numericText())
-                        .animation(.default, value: manager.remainingSeconds)
+                        .animation(.default, value: manager.totalFocusSeconds)
                 } else {
                     goalEditor
                 }

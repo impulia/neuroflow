@@ -21,7 +21,7 @@ struct neuroflowApp: App {
         HStack(spacing: 4) {
             Image(systemName: menuBarIcon)
             if manager.isActive {
-                Text(manager.remainingSeconds.asAdaptiveTime())
+                Text(manager.totalFocusSeconds.asAdaptiveTime())
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .monospacedDigit()
             }

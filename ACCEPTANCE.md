@@ -10,7 +10,7 @@
 ## App presence
 - The app appears only in the macOS menu bar — no Dock icon, no app switcher entry.
 - The menu bar icon is a brain outline when idle, a filled brain when running, and a pause circle when interrupted.
-- When a session is active (running or interrupted), the remaining countdown time is shown next to the icon in `MM:SS` format, switching to `HH:MM:SS` once it reaches one hour.
+- When a session is active (running or interrupted), the elapsed focus time is shown next to the icon in `MM:SS` format, switching to `HH:MM:SS` once it reaches one hour.
 
 ## Session states
 - The app is always in exactly one of three states: **idle**, **running**, or **interrupted**.
@@ -27,15 +27,15 @@
 - The popover is 300 px wide.
 - A circular progress ring shows total focus time as a fraction of the user's goal.
 - The ring is grey when idle, purple-to-cyan gradient when running, orange-to-yellow when interrupted.
-- When running, a "FOCUS" label in cyan appears above the countdown. When interrupted, an "IDLE" label in orange appears. When idle, no status label is shown.
+- When running, a "FOCUS" label in cyan appears above the timer. When interrupted, an "IDLE" label in orange appears. When idle, no status label is shown.
 - When idle, the center of the ring shows the goal duration in minutes with a subtle gradient — tapping it opens an inline editor.
-- When active (running or interrupted), the center shows the remaining countdown time in `MM:SS` / `HH:MM:SS`.
+- When active (running or interrupted), the center shows elapsed focus time in `MM:SS` / `HH:MM:SS` (counts up, aligned with the ring filling).
 - The ring animates smoothly on state transitions.
 
-## Countdown timer
-- The countdown counts down from the user's goal (e.g. 25 minutes).
-- Only active focus time counts toward the countdown — interruptions pause it.
-- When the countdown reaches zero, the session auto-stops and is saved.
+## Timer and goal
+- The timer counts up from zero, showing total elapsed focus time.
+- Only active focus time counts — interruptions pause the timer.
+- When elapsed focus time reaches the goal, the session auto-stops and is saved.
 - The goal duration is configurable from 1 to 480 minutes (default: 25 minutes).
 - The goal duration is persisted across app restarts via UserDefaults key `"goalMinutes"`.
 
