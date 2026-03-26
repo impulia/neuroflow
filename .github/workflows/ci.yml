@@ -1,47 +1,42 @@
 name: CI
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+  push:
+    branches: [main]
 
-env:
-  CARGO_TERM_COLOR: always
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
+  build-and-test:
+    name: Build & Test
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Install Rust
-        run: rustup update stable && rustup component add rustfmt
-      - name: Check formatting
-        run: cargo fmt --all -- --check
 
-  clippy:
-    name: Clippy
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust
-        run: rustup update stable && rustup component add clippy
-      - name: Run clippy
-        run: cargo clippy -- -D warnings
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
 
-  test:
-    name: Test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust
-        run: rustup update stable
-      - name: Run tests
-        run: cargo test
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project neuroflow.xcodeproj \
+            -scheme neuroflow \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty && exit ${PIPESTATUS[0]}
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -project neuroflow.xcodeproj \
+            -scheme neuroflow \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            -only-testing:neuroflowTests \
+            | xcpretty && exit ${PIPESTATUS[0]}

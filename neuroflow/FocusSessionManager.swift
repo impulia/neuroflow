@@ -1,0 +1,309 @@
+import Foundation
+import AppKit
+import Combine
+import IOKit.pwr_mgt
+
+@MainActor
+final class FocusSessionManager: ObservableObject {
+
+    // MARK: - Published State
+
+    @Published private(set) var state: SessionState = .idle
+    @Published private(set) var focusElapsedSeconds: Int = 0
+    @Published private(set) var totalFocusSeconds: Int = 0
+    @Published private(set) var interruptionCount: Int = 0
+    @Published private(set) var interruptedElapsedSeconds: Int = 0
+    @Published private(set) var totalInterruptedSeconds: Int = 0
+
+    // MARK: - Settings (persisted via UserDefaults)
+
+    @Published var goalMinutes: Int {
+        didSet { UserDefaults.standard.set(goalMinutes, forKey: "goalMinutes") }
+    }
+    @Published var autoDetectIdle: Bool {
+        didSet { UserDefaults.standard.set(autoDetectIdle, forKey: "autoDetectIdle") }
+    }
+    @Published var idleThresholdMinutes: Int {
+        didSet { UserDefaults.standard.set(idleThresholdMinutes, forKey: "idleThresholdMinutes") }
+    }
+    @Published var startStopHotkey: Hotkey {
+        didSet { persistHotkey(startStopHotkey, key: "startStopHotkey"); registerHotkeys() }
+    }
+    @Published var interruptHotkey: Hotkey {
+        didSet { persistHotkey(interruptHotkey, key: "interruptHotkey"); registerHotkeys() }
+    }
+
+    var idleThresholdSeconds: Int { idleThresholdMinutes * 60 }
+    var goalSeconds: Int { goalMinutes * 60 }
+    var remainingSeconds: Int { max(goalSeconds - totalFocusSeconds, 0) }
+
+    var isRunning: Bool { state == .running }
+    var isInterrupted: Bool { state == .interrupted }
+    var isActive: Bool { state != .idle }
+
+    // MARK: - Private
+
+    private var tickTimer: Timer?
+    private var idleCheckTimer: Timer?
+    private(set) var sessionStartDate: Date?
+    private(set) var segmentStartDate: Date?
+    private(set) var completedSegments: [FocusSegment] = []
+    private let sessionStore: SessionStore
+    private(set) var waitingForIdle = false
+
+    // MARK: - Init
+
+    init(sessionStore: SessionStore = .shared, enableTimers: Bool = true) {
+        self.sessionStore = sessionStore
+        let defaults = UserDefaults.standard
+        self.goalMinutes = defaults.object(forKey: "goalMinutes") as? Int ?? 25
+        self.autoDetectIdle = defaults.object(forKey: "autoDetectIdle") as? Bool ?? true
+        self.idleThresholdMinutes = defaults.object(forKey: "idleThresholdMinutes") as? Int ?? 5
+        self.startStopHotkey = Self.loadHotkey(key: "startStopHotkey") ?? .empty
+        self.interruptHotkey = Self.loadHotkey(key: "interruptHotkey") ?? .empty
+
+        if enableTimers {
+            startIdleDetection()
+            registerHotkeys()
+        }
+    }
+
+    // MARK: - Actions
+
+    func start() {
+        switch state {
+        case .idle:
+            sessionStartDate = Date()
+            segmentStartDate = Date()
+            focusElapsedSeconds = 0
+            totalFocusSeconds = 0
+            interruptionCount = 0
+            interruptedElapsedSeconds = 0
+            totalInterruptedSeconds = 0
+            completedSegments = []
+            state = .running
+            startTicking()
+
+        case .interrupted:
+            segmentStartDate = Date()
+            focusElapsedSeconds = 0
+            interruptedElapsedSeconds = 0
+            waitingForIdle = false
+            state = .running
+
+        case .running:
+            break
+        }
+    }
+
+    func stop() {
+        guard state != .idle else { return }
+        finalizeCurrentSegment()
+
+        if let start = sessionStartDate {
+            let record = FocusSessionRecord(
+                startDate: start,
+                endDate: Date(),
+                totalFocusSeconds: totalFocusSeconds,
+                totalInterruptedSeconds: totalInterruptedSeconds,
+                interruptionCount: interruptionCount,
+                goalSeconds: goalSeconds,
+                segments: completedSegments
+            )
+            sessionStore.append(record)
+        }
+
+        resetSession()
+    }
+
+    func interrupt(manual: Bool = true) {
+        guard state == .running else { return }
+        finalizeCurrentSegment()
+        interruptionCount += 1
+        focusElapsedSeconds = 0
+        interruptedElapsedSeconds = 0
+        state = .interrupted
+        if manual { waitingForIdle = true }
+    }
+
+    func toggleStartStop() {
+        if state == .idle || state == .interrupted {
+            start()
+        } else {
+            stop()
+        }
+    }
+
+    // MARK: - Tick Timer
+
+    func tick() {
+        switch state {
+        case .running:
+            focusElapsedSeconds += 1
+            totalFocusSeconds += 1
+            if totalFocusSeconds >= goalSeconds {
+                stop()
+            }
+        case .interrupted:
+            interruptedElapsedSeconds += 1
+            totalInterruptedSeconds += 1
+        case .idle:
+            break
+        }
+    }
+
+    private func startTicking() {
+        stopTicking()
+        tickTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            Task { @MainActor [weak self] in
+                self?.tick()
+            }
+        }
+        RunLoop.main.add(tickTimer!, forMode: .common)
+    }
+
+    private func stopTicking() {
+        tickTimer?.invalidate()
+        tickTimer = nil
+    }
+
+    // MARK: - Segment Management
+
+    private func finalizeCurrentSegment() {
+        guard let start = segmentStartDate, focusElapsedSeconds > 0 else {
+            segmentStartDate = nil
+            return
+        }
+        let segment = FocusSegment(startDate: start, endDate: Date())
+        completedSegments.append(segment)
+        segmentStartDate = nil
+    }
+
+    private func resetSession() {
+        stopTicking()
+        state = .idle
+        focusElapsedSeconds = 0
+        totalFocusSeconds = 0
+        interruptionCount = 0
+        interruptedElapsedSeconds = 0
+        totalInterruptedSeconds = 0
+        sessionStartDate = nil
+        segmentStartDate = nil
+        completedSegments = []
+        waitingForIdle = false
+    }
+
+    // MARK: - Idle Detection
+
+    private func startIdleDetection() {
+        idleCheckTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.autoDetectIdle else { return }
+                let idle = self.systemIdleSeconds()
+
+                switch self.state {
+                case .running:
+                    if idle >= self.idleThresholdSeconds {
+                        self.interrupt(manual: false)
+                    }
+                case .interrupted:
+                    if self.waitingForIdle {
+                        if idle >= self.idleThresholdSeconds {
+                            self.waitingForIdle = false
+                        }
+                    } else if idle < 3 {
+                        self.start()
+                    }
+                case .idle:
+                    break
+                }
+            }
+        }
+        RunLoop.main.add(idleCheckTimer!, forMode: .common)
+    }
+
+    private func systemIdleSeconds() -> Int {
+        var iterator: io_iterator_t = 0
+        guard IOServiceGetMatchingServices(kIOMainPortDefault,
+                                           IOServiceMatching("IOHIDSystem"),
+                                           &iterator) == KERN_SUCCESS else { return 0 }
+        let entry = IOIteratorNext(iterator)
+        IOObjectRelease(iterator)
+        guard entry != 0 else { return 0 }
+        defer { IOObjectRelease(entry) }
+
+        guard let prop = IORegistryEntryCreateCFProperty(
+            entry,
+            "HIDIdleTime" as CFString,
+            kCFAllocatorDefault,
+            0
+        ) else { return 0 }
+
+        let nanos = (prop.takeRetainedValue() as? NSNumber)?.uint64Value ?? 0
+        return Int(nanos / 1_000_000_000)
+    }
+
+    // MARK: - Hotkey Persistence
+
+    private func persistHotkey(_ hotkey: Hotkey, key: String) {
+        if let data = try? JSONEncoder().encode(hotkey) {
+            UserDefaults.standard.set(data, forKey: key)
+        }
+    }
+
+    private static func loadHotkey(key: String) -> Hotkey? {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(Hotkey.self, from: data)
+    }
+
+    private func registerHotkeys() {
+        HotkeyCenter.shared.register(startStop: startStopHotkey, interrupt: interruptHotkey)
+        HotkeyCenter.shared.onStartStop = { [weak self] in
+            Task { @MainActor in self?.toggleStartStop() }
+        }
+        HotkeyCenter.shared.onInterrupt = { [weak self] in
+            Task { @MainActor in self?.interrupt() }
+        }
+    }
+}
+
+// MARK: - Session Persistence
+
+final class SessionStore {
+    static let shared = SessionStore()
+
+    private let fileURL: URL
+
+    private init() {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("neuroflow", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        self.fileURL = dir.appendingPathComponent("sessions.json")
+    }
+
+    init(fileURL: URL) {
+        self.fileURL = fileURL
+    }
+
+    func append(_ record: FocusSessionRecord) {
+        var records = loadAll()
+        records.append(record)
+        save(records)
+    }
+
+    func loadAll() -> [FocusSessionRecord] {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
+        guard let data = try? Data(contentsOf: fileURL) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode([FocusSessionRecord].self, from: data)) ?? []
+    }
+
+    func save(_ records: [FocusSessionRecord]) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(records) else { return }
+        try? data.write(to: fileURL, options: .atomic)
+    }
+}
