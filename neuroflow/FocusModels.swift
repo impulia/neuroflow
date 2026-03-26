@@ -73,7 +73,7 @@ struct FocusSessionRecord: Codable, Identifiable, Equatable {
 
 // MARK: - Hotkey Model
 
-struct Hotkey: Codable, Equatable {
+struct Hotkey: Codable, Equatable, Hashable {
     var keyCode: UInt16
     var carbonModifiers: UInt32
 

@@ -62,10 +62,9 @@
 ## Global hotkeys
 - Two independent global hotkeys can be configured: Start / Stop and Interrupt.
 - Hotkeys are system-wide — they fire even when the app is not in focus.
-- Each hotkey requires at least one modifier key (⌘, ⌥, ⌃, or ⇧).
-- Hotkeys are recorded via an in-app overlay: pressing Esc cancels recording.
-- A configured hotkey is shown as a symbol string (e.g. `⌃⌥⌘F`); unset shows "Not set".
-- Each hotkey has a clear (✕) button to remove it.
+- Each hotkey is selected from a predefined list of shortcuts via a Picker in Settings.
+- The "Not set" option disables the hotkey.
+- A configured hotkey is shown as a symbol string (e.g. `⌃⌥F`).
 - Hotkeys are persisted across app restarts.
 
 ## Settings window
